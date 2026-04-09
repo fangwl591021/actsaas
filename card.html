@@ -1,4 +1,4 @@
-<!-- Version: v7.5.6 (SaaS Integrated: V2 Multi-link, Multi-tenancy Isolation) -->
+<!-- Version: v7.5.6 (SaaS 旗艦美化版：對接 Worker AI 與多租戶隔離) -->
 <!DOCTYPE html>
 <html class="light" lang="zh-TW">
 <head>
@@ -6,234 +6,287 @@
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
   <link rel="icon" href="data:,">
   <title>名片管理</title>
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&family=Noto+Sans+TC:wght@400;500;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
-
   <style type="text/tailwindcss">
-    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400; vertical-align: middle; }
-    .icon-filled { font-variation-settings: 'FILL' 1, 'wght' 400; }
-    body { background-color: #ffffff; -webkit-tap-highlight-color: transparent; font-family: 'Inter', 'Noto Sans TC', sans-serif; }
-    .pb-safe { padding-bottom: env(safe-area-inset-bottom, 1.5rem); }
-    
-    .input-label { @apply block text-[13px] font-bold text-slate-500 mb-2 uppercase tracking-wider; }
-    .custom-input { @apply w-full h-[50px] px-4 bg-slate-50 border border-transparent rounded-xl outline-none focus:bg-white focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all font-medium text-slate-800 text-[15px] shadow-sm placeholder-slate-400; }
-    .textarea-block { @apply w-full p-4 bg-slate-50 border border-transparent rounded-xl outline-none focus:bg-white focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all text-[15px] text-slate-800 resize-none leading-relaxed shadow-sm placeholder-slate-400; }
-    
-    .btn-primary { @apply w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-[16px] shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-2; }
-    .btn-secondary { @apply w-full py-4 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-[16px] active:scale-[0.98] transition-all flex items-center justify-center gap-2; }
-    
-    .nav-btn { @apply flex flex-col items-center justify-center transition-all flex-1 text-slate-400 h-full; min-width: 48px; }
-    .nav-active { @apply text-blue-600 font-bold; }
+    @layer base {
+      body { @apply font-['Noto_Sans_TC'] bg-slate-50 text-slate-900 antialiased; -webkit-tap-highlight-color: transparent; }
+      * { @apply transition-all duration-200 border-none outline-none font-normal !important; }
+    }
+    .custom-input { @apply w-full h-[52px] px-4 bg-slate-100/50 rounded-2xl text-[15px] focus:bg-white focus:ring-4 focus:ring-blue-500/10; }
+    .btn-primary { @apply w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-[16px] shadow-lg shadow-blue-500/20 active:scale-[0.98]; }
+    .btn-secondary { @apply w-full py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold text-[16px] active:scale-[0.98]; }
+    .nav-active { @apply text-blue-600; }
     .nav-active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
-
-    .admin-nav-btn { @apply flex flex-col items-center justify-center transition-all flex-1 text-slate-500 h-full; min-width: 48px; }
-    .admin-nav-active { @apply text-[#06C755] font-bold; }
+    .admin-nav-active { @apply text-[#06C755]; }
+    .card-shadow { box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05); }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
   </style>
 </head>
-<body class="text-slate-900 min-h-screen flex flex-col items-center bg-slate-50">
+<body class="flex flex-col items-center">
 
 <div class="w-full max-w-md bg-white h-screen relative flex flex-col shadow-2xl overflow-hidden">
   
-  <!-- Header -->
-  <nav class="fixed top-0 w-full max-w-md z-40 bg-white/95 backdrop-blur-xl px-5 py-3.5 flex justify-between items-center left-1/2 -translate-x-1/2 border-b border-slate-200 shadow-sm">
-    <div class="text-[19px] font-extrabold text-slate-800 flex items-center gap-2 font-headline tracking-tight">
-      <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-sm">
-        <span class="material-symbols-outlined text-[20px]">contact_mail</span>
+  <!-- Top Bar: Shop Identity -->
+  <header class="fixed top-0 w-full max-w-md z-50 bg-white/80 backdrop-blur-xl px-5 py-3.5 flex justify-between items-center left-1/2 -translate-x-1/2 border-b border-slate-100">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md">
+        <span class="material-symbols-outlined text-[20px] fill-current">contact_mail</span>
       </div>
-      名片管理 <span class="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded ml-1 font-bold tracking-wider">v7.5.6</span>
+      <div>
+        <div class="text-[17px] font-bold tracking-tight text-slate-800">名片管理</div>
+        <div class="text-[9px] text-blue-500 tracking-widest font-black uppercase mt-[-2px]">SaaS v7.5.6</div>
+      </div>
     </div>
     <div class="flex items-center gap-3">
-      <img id="user-avatar" src="" class="hidden w-9 h-9 rounded-full object-cover border border-slate-200">
-      <button onclick="toggleRoleMode()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center active:scale-95 transition-all">
+      <div id="u-profile" class="hidden flex items-center gap-2">
+        <img id="u-avatar" src="" class="w-9 h-9 rounded-full border-2 border-white shadow-sm">
+      </div>
+      <button onclick="toggleAdminMode()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center active:bg-slate-200">
         <span class="material-symbols-outlined text-[20px]">swap_horiz</span>
       </button>
     </div>
-  </nav>
+  </header>
 
-  <!-- Main View Area -->
-  <main id="main-content" class="flex-1 overflow-y-auto pb-32 pt-20 bg-slate-50">
+  <!-- Main Viewport -->
+  <main id="main-content" class="flex-1 overflow-y-auto pt-20 pb-32 hide-scrollbar">
     
-    <!-- 1. List View -->
-    <div id="view-list" class="animate-in fade-in">
-      <div class="px-5 pt-4">
-        <div class="bg-white rounded-2xl shadow-sm p-6 text-center border border-slate-100">
-          <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
-            <span class="material-symbols-outlined text-[24px]">document_scanner</span>
+    <!-- 視圖 A: 名片清單與辨識啟動 -->
+    <div id="view-list" class="p-5 animate-in fade-in duration-500">
+      <!-- AI OCR Scanner Box -->
+      <section class="bg-white rounded-[2.5rem] p-8 text-center border border-slate-50 card-shadow mb-8 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full opacity-50 -z-0"></div>
+        <div class="relative z-10">
+          <div class="w-14 h-14 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span class="material-symbols-outlined text-[30px]">document_scanner</span>
           </div>
-          <h2 class="text-[16px] font-bold text-slate-800 mb-1">AI 智慧名片辨識</h2>
-          <p class="text-[13px] text-slate-500 mb-5 font-medium">對準名片拍照或上傳圖檔，自動擷取聯絡資訊。</p>
+          <h2 class="text-[18px] font-extrabold text-slate-800 mb-2">AI 智慧名片辨識</h2>
+          <p class="text-[13px] text-slate-400 mb-6 leading-relaxed">對準名片拍照或上傳圖檔，自動擷取聯絡資訊並產生性格側寫。</p>
           <div class="flex gap-3">
-            <button onclick="document.getElementById('card-camera').click()" class="btn-primary flex-[1.2]">
-              <span class="material-symbols-outlined text-[20px]">photo_camera</span> 開啟相機
+            <button onclick="document.getElementById('c-camera').click()" class="btn-primary flex-[1.3]">
+              <span class="material-symbols-outlined text-[20px]">photo_camera</span> 啟動掃描
             </button>
-            <button onclick="document.getElementById('card-upload').click()" class="btn-secondary flex-1">
-              <span class="material-symbols-outlined text-[20px]">image</span> 從相簿
+            <button onclick="document.getElementById('c-album').click()" class="btn-secondary flex-1">
+              <span class="material-symbols-outlined text-[20px]">image</span> 相簿
             </button>
           </div>
-          <input type="file" id="card-camera" accept="image/*" capture="environment" class="hidden" onchange="handleOcr(this)">
-          <input type="file" id="card-upload" accept="image/*" class="hidden" onchange="handleOcr(this)">
+          <input type="file" id="c-camera" accept="image/*" capture="environment" class="hidden" onchange="runOcr(this)">
+          <input type="file" id="c-album" accept="image/*" class="hidden" onchange="runOcr(this)">
+          <div class="mt-4 text-[11px] text-slate-300 flex items-center justify-center gap-1 cursor-pointer">
+            <span class="material-symbols-outlined text-[14px]">sync</span> 批次重新讀取所有名片按鈕
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="mt-6 px-5 mb-3 flex gap-2">
+      <!-- Search & Refresh -->
+      <div class="flex gap-2 mb-6">
         <div class="relative flex-1">
           <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-          <input type="text" id="search-input" onkeyup="filterCards()" class="w-full h-[50px] pl-11 pr-4 bg-white border-transparent rounded-xl text-[15px] outline-none shadow-sm" placeholder="搜尋姓名或公司...">
+          <input type="text" id="search-bar" onkeyup="filterList()" class="custom-input pl-11" placeholder="搜尋姓名或公司...">
         </div>
-        <button onclick="fetchCards()" class="w-[50px] h-[50px] bg-white border-transparent rounded-xl shadow-sm flex items-center justify-center text-slate-600">
+        <button onclick="loadTenantData()" class="w-[52px] h-[52px] bg-white rounded-2xl border border-slate-100 flex items-center justify-center text-slate-400 active:scale-90">
           <span class="material-symbols-outlined">refresh</span>
         </button>
       </div>
-      
-      <div id="card-container" class="px-5 space-y-3">
-        <!-- Cards will be injected here -->
+
+      <!-- Card List Container -->
+      <div id="card-list" class="space-y-4">
+        <!-- 骨架屏載入中 -->
+        <div class="h-20 bg-slate-50 rounded-2xl animate-pulse"></div>
+        <div class="h-20 bg-slate-50 rounded-2xl animate-pulse"></div>
       </div>
     </div>
 
-    <!-- 2. Processing View -->
-    <div id="view-process" class="hidden px-5 pt-4 space-y-6 animate-in fade-in">
-       <div class="flex items-center gap-3">
-        <button onclick="switchView('list')" class="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm"><span class="material-symbols-outlined">arrow_back</span></button>
-        <h2 class="text-[20px] font-bold">辨識結果確認</h2>
+    <!-- 視圖 B: AI 辨識結果確認表單 -->
+    <div id="view-process" class="hidden p-5 animate-in slide-in-from-right duration-300">
+      <div class="flex items-center gap-4 mb-6">
+        <button onclick="switchView('list')" class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 active:scale-90">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h2 class="text-[20px] font-extrabold text-slate-800">辨識結果確認</h2>
       </div>
-      <div class="bg-white rounded-2xl shadow-sm p-5 border border-slate-100">
-        <img id="ocr-preview" src="" class="w-full h-40 object-contain bg-slate-50 rounded-xl mb-6">
-        <div class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div><label class="input-label">姓名</label><input type="text" id="f-name" class="custom-input"></div>
-            <div><label class="input-label">職稱</label><input type="text" id="f-title" class="custom-input"></div>
+
+      <div class="bg-white rounded-[2rem] p-6 border border-slate-100 card-shadow space-y-6">
+        <div class="w-full aspect-video rounded-2xl overflow-hidden bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center relative">
+          <img id="ocr-preview" class="w-full h-full object-contain hidden">
+          <div id="ocr-loading" class="flex flex-col items-center gap-2 text-blue-500">
+             <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+             <span class="text-[12px] font-bold">AI 深度分析中...</span>
           </div>
-          <div><label class="input-label">公司</label><input type="text" id="f-company" class="custom-input"></div>
-          <div><label class="input-label">手機</label><input type="tel" id="f-phone" class="custom-input"></div>
-          <div><label class="input-label">品牌標語</label><textarea id="f-slogan" class="textarea-block h-24"></textarea></div>
-          <button onclick="saveCardData()" id="save-btn" class="btn-primary mt-4">確認存入雲端</button>
+        </div>
+
+        <div class="space-y-5">
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">姓名</label>
+              <input type="text" id="f-name" class="custom-input">
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">職稱</label>
+              <input type="text" id="f-title" class="custom-input">
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">公司</label>
+            <input type="text" id="f-company" class="custom-input">
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">手機</label>
+            <input type="tel" id="f-phone" class="custom-input">
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">AI 性格側寫 / 命理標籤</label>
+            <textarea id="f-personality" class="w-full p-4 bg-slate-50 rounded-2xl text-[13px] text-slate-600 h-28 leading-relaxed"></textarea>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">品牌標語 (AI 擴寫)</label>
+            <textarea id="f-slogan" class="w-full p-4 bg-slate-50 rounded-2xl text-[13px] text-slate-600 h-20 leading-relaxed"></textarea>
+          </div>
+          <button onclick="commitToCloud()" class="btn-primary mt-4">確認存入租戶雲端</button>
         </div>
       </div>
     </div>
   </main>
 
-  <!-- Bottom Navigation -->
-  <nav id="footer-nav" class="fixed bottom-0 w-full max-w-md bg-white border-t border-slate-100 flex justify-evenly items-center px-1 py-2 z-40 pb-safe shadow-lg left-1/2 -translate-x-1/2 h-[76px] rounded-t-3xl transition-colors duration-300">
-    <!-- Dynamic buttons based on role -->
-  </nav>
+  <!-- Bottom Nav Bar (Adaptive) -->
+  <footer id="nav-bar" class="fixed bottom-0 w-full max-w-md bg-white border-t border-slate-100 flex justify-around items-center h-[80px] px-2 rounded-t-[2.5rem] shadow-[0_-10px_30px_rgba(0,0,0,0.03)] z-50 transition-all duration-500 left-1/2 -translate-x-1/2">
+    <!-- 動態生成按鈕 -->
+  </footer>
 </div>
 
 <script>
-  let session = null;
-  let cardsData = [];
+  const WORKER_ENDPOINT = "https://actsaas.fangwl591021.workers.dev/";
+  let currentSession = null;
+  let ocrData = null;
 
-  // Initialize LIFF and Session
   async function init() {
     try {
       await liff.init({ liffId: "你的LIFF_ID" });
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
-      }
+      if (!liff.isLoggedIn()) { liff.login(); return; }
+      
       const profile = liff.getDecodedIDToken();
+      document.getElementById('u-avatar').src = profile.picture;
+      document.getElementById('u-profile').classList.remove('hidden');
+
+      // 通過 Worker 獲取 SaaS 上下文 (auth.gs)
+      const res = await fetch(WORKER_ENDPOINT, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'checkUser', payload: { userId: profile.sub } })
+      });
+      const data = await res.json();
+      currentSession = data.data;
       
-      // Get SaaS Context
-      google.script.run.withSuccessHandler(res => {
-        session = res;
-        document.getElementById('user-avatar').src = liff.getDecodedIDToken().picture || "";
-        document.getElementById('user-avatar').classList.remove('hidden');
-        renderNav();
-        fetchCards();
-      }).getUserSession(profile.sub);
-      
-    } catch (err) {
-      console.error("LIFF Init Error", err);
-    }
+      renderUI();
+      loadTenantData();
+    } catch (e) { console.error("Init Error", e); }
   }
 
-  function renderNav() {
-    const nav = document.getElementById('footer-nav');
-    const isAdmin = session.role === 'Leader' || session.role === 'Manager';
+  function renderUI() {
+    const nav = document.getElementById('nav-bar');
+    const isAdmin = currentSession.role === 'Leader' || currentSession.role === 'Manager';
     
     if (isAdmin) {
       nav.classList.add('bg-slate-900', 'text-slate-400');
       nav.innerHTML = `
-        <button class="admin-nav-btn"><span class="material-symbols-outlined">fact_check</span><span class="text-[10px]">核銷</span></button>
-        <button class="admin-nav-btn"><span class="material-symbols-outlined">groups</span><span class="text-[10px]">CRM</span></button>
-        <button class="admin-nav-btn admin-nav-active"><span class="material-symbols-outlined">contact_page</span><span class="text-[10px]">名片</span></button>
-        <button class="admin-nav-btn"><span class="material-symbols-outlined">settings</span><span class="text-[10px]">參數</span></button>
+        <button class="flex flex-col items-center"><span class="material-symbols-outlined">fact_check</span><span class="text-[10px] mt-1">核銷</span></button>
+        <button class="flex flex-col items-center"><span class="material-symbols-outlined">groups</span><span class="text-[10px] mt-1">CRM</span></button>
+        <button class="flex flex-col items-center admin-nav-active"><span class="material-symbols-outlined">contact_page</span><span class="text-[10px] mt-1 font-bold">名片</span></button>
+        <button class="flex flex-col items-center"><span class="material-symbols-outlined">settings</span><span class="text-[10px] mt-1">參數</span></button>
       `;
     } else {
       nav.classList.remove('bg-slate-900');
       nav.innerHTML = `
-        <button class="nav-btn nav-active"><span class="material-symbols-outlined">contact_page</span><span class="text-[10px]">名片</span></button>
-        <button class="nav-btn"><span class="material-symbols-outlined">psychology</span><span class="text-[10px]">配對</span></button>
-        <button class="nav-btn"><span class="material-symbols-outlined">person</span><span class="text-[10px]">設定</span></button>
+        <button class="flex flex-col items-center nav-active"><span class="material-symbols-outlined">contact_page</span><span class="text-[10px] mt-1 font-bold">名片</span></button>
+        <button class="flex flex-col items-center text-slate-400"><span class="material-symbols-outlined">psychology</span><span class="text-[10px] mt-1">配對</span></button>
+        <button class="flex flex-col items-center text-slate-400"><span class="material-symbols-outlined">person</span><span class="text-[10px] mt-1">設定</span></button>
       `;
     }
   }
 
-  function fetchCards() {
-    google.script.run.withSuccessHandler(data => {
-      cardsData = data;
-      const container = document.getElementById('card-container');
-      container.innerHTML = data.map(c => `
-        <div class="bg-white p-4 flex items-center space-x-4 rounded-2xl shadow-sm border border-slate-50">
-          <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center overflow-hidden">
-             <span class="material-symbols-outlined text-slate-300">person</span>
-          </div>
-          <div class="flex-1">
-            <div class="text-[15px] font-bold text-slate-800">${c.name}</div>
-            <div class="text-[12px] text-slate-400">${c.company || '無公司'}</div>
-          </div>
-          <div class="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded-full font-bold">${c.tag || '待側寫'}</div>
-        </div>
-      `).join('');
-    }).getTenantCards(session.uid);
-  }
+  function runOcr(input) {
+    if (!input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      document.getElementById('ocr-preview').src = e.target.result;
+      document.getElementById('ocr-preview').classList.remove('hidden');
+      document.getElementById('ocr-loading').classList.remove('hidden');
+      switchView('process');
 
-  function handleOcr(input) {
-    if (input.files && input.files[0]) {
-      const reader = new FileReader();
-      reader.onload = e => {
-        document.getElementById('ocr-preview').src = e.target.result;
-        switchView('process');
-        // Call service_ocr.gs
-        google.script.run.withSuccessHandler(res => {
-          document.getElementById('f-name').value = res.name || "";
-          document.getElementById('f-title').value = res.title || "";
-          document.getElementById('f-company').value = res.company || "";
-          document.getElementById('f-phone').value = res.phone || "";
-        }).processBusinessCard(e.target.result.split(',')[1], session.uid);
-      };
-      reader.readAsDataURL(input.files[0]);
-    }
-  }
-
-  function saveCardData() {
-    const data = {
-      name: document.getElementById('f-name').value,
-      title: document.getElementById('f-title').value,
-      company: document.getElementById('f-company').value,
-      phone: document.getElementById('f-phone').value,
-      slogan: document.getElementById('f-slogan').value
+      // 呼叫 Worker 進行 AI 結構化辨識
+      const res = await fetch(WORKER_ENDPOINT, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'recognizeCard',
+          payload: { base64Image: e.target.result.split(',')[1] }
+        })
+      });
+      const result = await res.json();
+      ocrData = result.data;
+      
+      document.getElementById('f-name').value = ocrData.Name;
+      document.getElementById('f-title').value = ocrData.Title;
+      document.getElementById('f-company').value = ocrData.CompanyName;
+      document.getElementById('f-phone').value = ocrData.Mobile;
+      document.getElementById('f-personality').value = ocrData.Personality;
+      document.getElementById('f-slogan').value = ocrData.Slogan;
+      document.getElementById('ocr-loading').classList.add('hidden');
     };
-    google.script.run.withSuccessHandler(() => {
-      alert("資料已安全存入您的專屬雲端庫");
-      switchView('list');
-      fetchCards();
-    }).saveTenantCard(session.uid, data);
+    reader.readAsDataURL(input.files[0]);
   }
 
-  function switchView(id) {
+  async function commitToCloud() {
+    const payload = { 
+      ...ocrData, 
+      Name: document.getElementById('f-name').value,
+      Mobile: document.getElementById('f-phone').value,
+      userId: currentSession.uid 
+    };
+    await fetch(WORKER_ENDPOINT, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveCard', payload })
+    });
+    alert("名片資料與命理側寫已同步至租戶年度雲端庫");
+    switchView('list');
+    loadTenantData();
+  }
+
+  async function loadTenantData() {
+    const res = await fetch(WORKER_ENDPOINT, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getCardContacts', payload: { userId: currentSession.uid } })
+    });
+    const { data } = await res.json();
+    const list = document.getElementById('card-list');
+    list.innerHTML = data.map(c => `
+      <div class="bg-white p-4 flex items-center gap-4 rounded-2xl border border-slate-50 card-shadow">
+        <div class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
+           <span class="material-symbols-outlined">person</span>
+        </div>
+        <div class="flex-1">
+          <div class="text-[15px] font-bold text-slate-800">${c.name}</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">${c.company || '無公司'}</div>
+        </div>
+        <div class="text-[10px] bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-bold">${c.stage}</div>
+      </div>
+    `).join('');
+  }
+
+  function switchView(view) {
     document.getElementById('view-list').classList.add('hidden');
     document.getElementById('view-process').classList.add('hidden');
-    document.getElementById('view-' + id).classList.remove('hidden');
+    document.getElementById('view-' + view).classList.remove('hidden');
   }
 
-  function toggleRoleMode() {
-    const target = session.role === 'Leader' ? 'Sales' : 'Leader';
-    google.script.run.withSuccessHandler(() => window.location.reload()).switchUserMode(session.uid, target);
+  async function toggleAdminMode() {
+    const target = currentSession.role === 'Leader' ? 'Sales' : 'Leader';
+    await fetch(WORKER_ENDPOINT, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'switchUserMode', payload: { userId: currentSession.uid, targetMode: target } })
+    });
+    window.location.reload();
   }
 
   window.onload = init;
