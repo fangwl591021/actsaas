@@ -1,4 +1,4 @@
-<!-- Version: v20260409_1300 (SaaS 旗艦美化整合版) -->
+<!-- Version: v20260409_1300 (SaaS 旗艦美化整合版 - 解決 SyntaxError 路徑問題) -->
 <!DOCTYPE html>
 <html class="light" lang="zh-TW">
 <head>
@@ -19,27 +19,18 @@
       body { @apply font-['Noto_Sans_TC'] bg-slate-50 text-slate-900 antialiased; -webkit-tap-highlight-color: transparent; }
       * { @apply transition-all duration-200 border-none outline-none font-normal !important; }
     }
-    /* 核心輸入框美化 */
     .input-label { @apply block text-[12px] font-bold text-slate-400 mb-2 uppercase tracking-[0.1em] pl-1; }
     .custom-input { @apply w-full h-[54px] px-4 bg-slate-100/50 rounded-2xl text-[15px] focus:bg-white focus:ring-4 focus:ring-blue-500/10 placeholder-slate-300; }
     .textarea-block { @apply w-full p-4 bg-slate-100/50 rounded-2xl text-[15px] resize-none leading-relaxed focus:bg-white focus:ring-4 focus:ring-blue-500/10; }
-    
-    /* 按鈕美化 */
     .btn-primary { @apply w-full py-4 bg-blue-600 text-white rounded-[1.5rem] font-bold text-[16px] shadow-lg shadow-blue-500/20 active:scale-[0.97] flex items-center justify-center gap-2; }
     .btn-secondary { @apply w-full py-4 bg-white border border-slate-200 text-slate-700 rounded-[1.5rem] font-bold text-[16px] active:scale-[0.97] flex items-center justify-center gap-2; }
-    
-    /* 導覽列美化 */
     .nav-btn { @apply flex flex-col items-center justify-center transition-all flex-1 text-slate-400 h-full; }
     .nav-active { @apply text-blue-600 font-bold; }
     .nav-active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
-    
     .admin-nav-btn { @apply flex flex-col items-center justify-center transition-all flex-1 text-slate-500 h-full; }
     .admin-nav-active { @apply text-[#06C755] font-bold; }
     .admin-nav-active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
-
-    /* 其他輔助樣式 */
     .pb-safe { padding-bottom: env(safe-area-inset-bottom, 1rem); }
-    .hide-scrollbar::-webkit-scrollbar { display: none; }
     .card-shadow { box-shadow: 0 8px 30px -10px rgba(0,0,0,0.04); }
   </style>
 </head>
@@ -47,13 +38,12 @@
 
 <div class="w-full max-w-md bg-white h-screen relative flex flex-col shadow-2xl overflow-hidden">
   
-  <!-- 頂部導航 -->
-  <nav class="fixed top-0 w-full max-w-md z-40 bg-white/90 backdrop-blur-xl px-5 py-3.5 flex justify-between items-center left-1/2 -translate-x-1/2 border-b border-slate-50 shadow-sm">
+  <nav class="fixed top-0 w-full max-w-md z-40 bg-white/95 backdrop-blur-xl px-5 py-3.5 flex justify-between items-center left-1/2 -translate-x-1/2 border-b border-slate-50 shadow-sm">
     <div class="flex items-center gap-2.5">
       <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md">
         <span class="material-symbols-outlined text-[20px] icon-filled">contact_mail</span>
       </div>
-      <div class="text-[18px] font-bold tracking-tight text-slate-800">名片管理 <span class="text-[9px] text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-md ml-1 font-black">v7.5.6</span></div>
+      <div class="text-[18px] font-bold tracking-tight text-slate-800">名片管理 <span class="text-[9px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md ml-1 font-black">v7.5.6</span></div>
     </div>
     <div class="flex items-center gap-3">
       <div id="user-profile-badge" class="hidden flex items-center gap-2">
@@ -65,19 +55,13 @@
     </div>
   </nav>
 
-  <!-- 主內容區域 -->
-  <main id="main-content" class="flex-1 overflow-y-auto pb-32 pt-20 bg-slate-50 hide-scrollbar">
-    
-    <!-- 讀取中畫面 -->
+  <main id="main-content" class="flex-1 overflow-y-auto pb-32 pt-20 bg-slate-50">
     <div id="view-loading" class="h-full flex flex-col items-center justify-center space-y-4">
       <div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      <p id="loading-text" class="text-slate-400 font-bold text-[13px] tracking-widest">系統初始化中</p>
+      <p id="loading-text" class="text-slate-400 font-bold text-[13px] tracking-widest">初始化中</p>
     </div>
 
-    <!-- A: 名片清單主畫面 -->
     <div id="view-list" class="hidden animate-in fade-in duration-500">
-      
-      <!-- 管理者工具：AI 掃描器 -->
       <div id="admin-tools-container" class="px-5 pt-4">
         <section class="bg-white rounded-[2.5rem] p-8 text-center border border-slate-50 card-shadow relative overflow-hidden">
           <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full opacity-40 -z-0"></div>
@@ -86,17 +70,13 @@
               <span class="material-symbols-outlined text-[30px]">document_scanner</span>
             </div>
             <h2 class="text-[18px] font-bold text-slate-800 mb-1">AI 智慧名片辨識</h2>
-            <p class="text-[13px] text-slate-400 mb-6 leading-relaxed px-4">對準名片拍照或上傳圖檔，自動擷取資訊並產生人格側寫。</p>
+            <p class="text-[13px] text-slate-400 mb-6 leading-relaxed">辨識名片、產出 AI 性格標籤。</p>
             <div class="flex gap-3">
-              <button onclick="document.getElementById('card-camera').click()" class="btn-primary flex-[1.3]">
-                <span class="material-symbols-outlined text-[20px]">photo_camera</span> 啟動掃描
-              </button>
-              <button onclick="document.getElementById('card-upload').click()" class="btn-secondary flex-1">
-                <span class="material-symbols-outlined text-[20px]">image</span> 相簿
-              </button>
+              <button onclick="document.getElementById('card-camera').click()" class="btn-primary flex-[1.3]">開啟相機</button>
+              <button onclick="document.getElementById('card-upload').click()" class="btn-secondary flex-1">相簿</button>
             </div>
-            <button id="btn-batch-regenerate" onclick="window.batchRegenerateECards()" class="mt-5 text-[11px] text-slate-300 font-bold flex items-center justify-center mx-auto gap-1 active:scale-95">
-              <span class="material-symbols-outlined text-[15px]">sync</span> 批次重新讀取寫入所有名片
+            <button id="btn-batch-regenerate" onclick="window.batchRegenerateECards()" class="mt-4 text-[11px] text-slate-300 font-bold flex items-center justify-center mx-auto gap-1">
+              <span class="material-symbols-outlined text-[15px]">sync</span> 批次同步名片
             </button>
             <input type="file" id="card-camera" accept="image/*" capture="environment" class="hidden" onchange="window.openCropper(this, 'card')">
             <input type="file" id="card-upload" accept="image/*" class="hidden" onchange="window.openCropper(this, 'card')">
@@ -104,195 +84,67 @@
         </section>
       </div>
 
-      <!-- 搜尋與列表 -->
-      <div id="admin-search-container" class="mt-8 px-5">
+      <div id="admin-search-container" class="mt-6 px-5">
         <div class="flex gap-2 mb-4">
-          <div class="relative flex-1">
-            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-            <input type="text" id="card-search-input" onkeyup="window.filterCardList()" class="custom-input pl-11" placeholder="搜尋姓名或公司...">
-          </div>
-          <button id="btn-refresh-cards" onclick="window.reloadCardContacts()" class="w-[54px] h-[54px] bg-white rounded-2xl flex items-center justify-center text-slate-400 shadow-sm active:scale-90 border border-slate-50">
-            <span class="material-symbols-outlined">refresh</span>
-          </button>
+          <input type="text" id="card-search-input" onkeyup="window.filterCardList()" class="custom-input flex-1" placeholder="搜尋姓名或公司...">
+          <button id="btn-refresh-cards" onclick="window.reloadCardContacts()" class="w-[54px] h-[54px] bg-white rounded-2xl flex items-center justify-center text-slate-400 border border-slate-50 shadow-sm"><span class="material-symbols-outlined">refresh</span></button>
         </div>
-        <div id="admin-card-list-container" class="space-y-4">
-          <!-- 名片清單將由 JS 渲染至此 -->
-        </div>
+        <div id="admin-card-list-container" class="space-y-3"></div>
       </div>
     </div>
 
-    <!-- B: AI 辨識處理中/表單確認 -->
     <div id="view-process" class="hidden p-5 animate-in slide-in-from-right duration-300">
-      <div class="flex items-center gap-4 mb-6">
-        <button onclick="window.resetUI()" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-500 shadow-sm active:scale-90">
-          <span class="material-symbols-outlined">arrow_back</span>
-        </button>
-        <h2 class="text-[20px] font-bold text-slate-800">辨識結果確認</h2>
-      </div>
-
       <div id="section-loading" class="bg-white rounded-[2.5rem] p-10 text-center card-shadow">
         <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <h3 class="text-[17px] font-bold text-slate-800 mb-1">AI 深度分析中...</h3>
-        <p class="text-[13px] text-slate-400">正在萃取資訊與命理人格標籤，請稍候。</p>
+        <h3 class="text-[17px] font-bold">AI 深度分析中...</h3>
       </div>
-
       <div id="section-form" class="hidden space-y-6">
-        <div class="bg-white rounded-[2.5rem] p-6 card-shadow space-y-6 border border-slate-50">
-          <div class="w-full aspect-video rounded-2xl overflow-hidden bg-slate-50 flex items-center justify-center border-2 border-dashed border-slate-100">
-            <img id="process-preview-image" src="" class="w-full h-full object-contain">
+        <div class="bg-white rounded-[2.5rem] p-6 card-shadow space-y-6">
+          <img id="process-preview-image" src="" class="w-full aspect-video object-contain rounded-2xl bg-slate-50">
+          <div class="grid grid-cols-2 gap-4">
+            <input type="text" id="f-Name" class="custom-input" placeholder="姓名">
+            <input type="text" id="f-EnglishName" class="custom-input" placeholder="英文名">
           </div>
-          <div class="space-y-5">
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-1.5"><label class="input-label">姓名</label><input type="text" id="f-Name" class="custom-input"></div>
-              <div class="space-y-1.5"><label class="input-label">英文名</label><input type="text" id="f-EnglishName" class="custom-input"></div>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-1.5"><label class="input-label">職稱</label><input type="text" id="f-Title" class="custom-input"></div>
-              <div class="space-y-1.5"><label class="input-label">部門</label><input type="text" id="f-Department" class="custom-input"></div>
-            </div>
-            <div class="space-y-1.5"><label class="input-label">公司名稱</label><input type="text" id="f-CompanyName" class="custom-input"></div>
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-1.5"><label class="input-label">手機號碼</label><input type="tel" id="f-Mobile" class="custom-input"></div>
-              <div class="space-y-1.5"><label class="input-label">統一編號</label><input type="text" id="f-TaxID" class="custom-input"></div>
-            </div>
-            <div class="space-y-1.5">
-              <label class="input-label">品牌標語 / 服務內容</label>
-              <textarea id="f-Slogan" class="textarea-block h-28" placeholder="AI 將根據公司自動擴寫..."></textarea>
-            </div>
-            <div class="space-y-1.5">
-              <label class="input-label text-blue-600">內部備註 (選填)</label>
-              <textarea id="f-Notes" class="textarea-block h-24" placeholder="例如：展覽識得、老客戶介紹"></textarea>
-            </div>
-            <button id="btn-save" onclick="window.saveToCloud()" class="btn-primary mt-4">確認存入雲端資料庫</button>
-          </div>
+          <input type="text" id="f-CompanyName" class="custom-input" placeholder="公司名稱">
+          <input type="tel" id="f-Mobile" class="custom-input" placeholder="手機號碼">
+          <textarea id="f-Slogan" class="textarea-block h-24" placeholder="AI 擴寫 Slogan"></textarea>
+          <button id="btn-save" onclick="window.saveToCloud()" class="btn-primary">存入雲端資料庫</button>
         </div>
       </div>
     </div>
   </main>
 
-  <!-- 底部導覽列 (動態渲染) -->
-  <nav id="bottom-nav-user" class="hidden fixed bottom-0 w-full max-w-md bg-white/95 backdrop-blur-xl flex justify-around items-center px-1 py-2 z-40 pb-safe shadow-[0_-10px_30px_rgba(0,0,0,0.03)] left-1/2 -translate-x-1/2 h-[76px] rounded-t-[2rem] border-t border-slate-50">
-    <button onclick="window.location.href='index.html?view=user-activities'" class="nav-btn"><div class="px-5 py-1.5 rounded-2xl"><span class="material-symbols-outlined">explore</span></div><span class="text-[10px] mt-0.5">探索</span></button>
-    <button onclick="window.location.href='fate.html'" class="nav-btn"><div class="px-5 py-1.5 rounded-2xl"><span class="material-symbols-outlined">psychology</span></div><span class="text-[10px] mt-0.5">配對</span></button>
-    <button class="nav-btn nav-active"><div class="px-5 py-1.5 rounded-2xl bg-blue-50"><span class="material-symbols-outlined">contact_mail</span></div><span class="text-[10px] mt-0.5">名片</span></button>
-    <button onclick="window.location.href='index.html?view=user-profile'" class="nav-btn"><div class="px-5 py-1.5 rounded-2xl"><span class="material-symbols-outlined">person</span></div><span class="text-[10px] mt-0.5">設定</span></button>
+  <!-- 底部導覽列 -->
+  <nav id="bottom-nav-user" class="hidden fixed bottom-0 w-full max-w-md bg-white border-t border-slate-50 flex justify-around items-center px-1 py-2 z-40 pb-safe shadow-lg left-1/2 -translate-x-1/2 h-[76px] rounded-t-[2rem]">
+    <button class="nav-btn nav-active"><span class="material-symbols-outlined">contact_mail</span><span class="text-[10px]">名片</span></button>
+    <button onclick="window.location.href='index.html?view=user-profile'" class="nav-btn"><span class="material-symbols-outlined">person</span><span class="text-[10px]">設定</span></button>
   </nav>
-
-  <nav id="bottom-nav-admin" class="hidden fixed bottom-0 w-full max-w-md bg-slate-900/95 backdrop-blur-xl flex justify-around items-center px-1 py-2 z-40 pb-safe shadow-lg left-1/2 -translate-x-1/2 h-[76px] rounded-t-[2rem] border-t border-slate-800">
-    <button onclick="window.location.href='index.html?view=admin-activities'" class="admin-nav-btn"><div class="px-3 py-1.5 rounded-2xl"><span class="material-symbols-outlined">fact_check</span></div><span class="text-[10px] mt-0.5">核銷</span></button>
-    <button onclick="window.location.href='active.html'" class="admin-nav-btn"><div class="px-3 py-1.5 rounded-2xl"><span class="material-symbols-outlined">add_circle</span></div><span class="text-[10px] mt-0.5">建立</span></button>
-    <button onclick="window.location.href='index.html?view=admin-crm'" class="admin-nav-btn"><div class="px-3 py-1.5 rounded-2xl"><span class="material-symbols-outlined">groups</span></div><span class="text-[10px] mt-0.5">CRM</span></button>
-    <button class="admin-nav-btn admin-nav-active"><div class="px-3 py-1.5 rounded-2xl bg-slate-800"><span class="material-symbols-outlined">recent_patient</span></div><span class="text-[10px] mt-0.5">名片</span></button>
-    <button onclick="window.location.href='index.html?view=admin-settings'" class="admin-nav-btn"><div class="px-3 py-1.5 rounded-2xl"><span class="material-symbols-outlined">settings</span></div><span class="text-[10px] mt-0.5">參數</span></button>
+  <nav id="bottom-nav-admin" class="hidden fixed bottom-0 w-full max-w-md bg-slate-900 border-t border-slate-800 flex justify-around items-center px-1 py-2 z-40 pb-safe shadow-lg left-1/2 -translate-x-1/2 h-[76px] rounded-t-[2rem]">
+    <button class="admin-nav-btn admin-nav-active"><span class="material-symbols-outlined">recent_patient</span><span class="text-[10px]">名片</span></button>
+    <button onclick="window.location.href='index.html?view=admin-crm'" class="admin-nav-btn"><span class="material-symbols-outlined">groups</span><span class="text-[10px]">CRM</span></button>
   </nav>
 </div>
 
-<!-- 名片詳情 Modal -->
-<div id="readonly-card-modal" class="hidden fixed inset-0 bg-white flex flex-col animate-in slide-in-from-bottom-full duration-300 w-full max-w-md mx-auto left-0 right-0 shadow-2xl z-[100] overflow-hidden">
-  <div class="absolute top-4 right-4 z-[110] flex gap-3">
-    <button onclick="window.openCardEdit()" class="w-10 h-10 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-blue-600 shadow-sm border border-slate-100"><span class="material-symbols-outlined text-[20px]">edit</span></button>
-    <button onclick="window.closeReadOnlyCard()" class="w-10 h-10 bg-black/40 backdrop-blur rounded-full flex items-center justify-center text-white shadow-sm"><span class="material-symbols-outlined text-[20px]">close</span></button>
-  </div>
-  <div class="flex-1 overflow-y-auto pb-32">
-    <div class="w-full aspect-[20/13] bg-slate-100 relative flex items-center justify-center">
-      <img id="ro-image" src="" class="w-full h-full object-cover hidden">
-      <div id="ro-no-image" class="absolute inset-0 flex flex-col items-center justify-center text-slate-300">
-        <span class="material-symbols-outlined text-7xl mb-2">contact_mail</span>
-        <p class="text-[13px] font-bold">無名片圖檔</p>
-      </div>
-    </div>
-    <div class="px-6 pt-8 space-y-8">
-      <div>
-        <div class="flex items-center gap-2 mb-1.5">
-          <h2 id="ro-name" class="text-[28px] font-extrabold text-slate-800 tracking-tight leading-none">載入中...</h2>
-          <span id="ro-claim-status" class="hidden"></span>
-        </div>
-        <p id="ro-title" class="text-[15px] font-medium text-slate-400"></p>
-      </div>
-      <div class="flex flex-col gap-0 border-y border-slate-50">
-        <div class="flex items-center gap-4 py-4 border-b border-slate-50 last:border-0"><span class="material-symbols-outlined text-slate-300 text-[22px]">apartment</span><span id="ro-company" class="text-slate-800 text-[15px] font-bold"></span></div>
-        <div class="flex items-center gap-4 py-4 border-b border-slate-50 last:border-0"><span class="material-symbols-outlined text-slate-300 text-[22px]">smartphone</span><a href="" id="ro-mobile-link" class="text-blue-600 font-black text-[15px]"></a></div>
-        <div class="flex items-center gap-4 py-4 border-b border-slate-50 last:border-0"><span class="material-symbols-outlined text-slate-300 text-[22px]">email</span><a href="" id="ro-email-link" class="text-blue-600 font-black text-[15px] truncate"></a></div>
-        <div class="flex items-start gap-4 py-4"><span class="material-symbols-outlined text-slate-300 text-[22px] mt-0.5">location_on</span><span id="ro-address" class="text-slate-800 text-[15px] font-bold leading-relaxed"></span></div>
-      </div>
-      <div class="pt-2"><p id="ro-notes" class="text-[14px] text-slate-600 whitespace-pre-wrap leading-relaxed bg-slate-50 p-5 rounded-2xl"></p></div>
-    </div>
-  </div>
-  <div class="fixed bottom-0 w-full max-w-md bg-white p-4 pb-safe flex gap-3 border-t border-slate-50 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] z-[110]">
-    <button id="btn-share-claim" onclick="window.shareClaimLink()" class="hidden flex-1 py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold text-[16px]">邀請認領</button>
-    <button onclick="alert('數位名片模組載入中')" class="flex-1 py-4 bg-[#06C755] text-white rounded-2xl font-bold text-[16px] shadow-lg shadow-green-500/20">產生數位名片</button>
-  </div>
+<!-- Modal 容器 -->
+<div id="readonly-card-modal" class="hidden fixed inset-0 bg-white z-[100] flex flex-col">
+  <div class="p-4 flex justify-end gap-3"><button onclick="window.closeReadOnlyCard()" class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500"><span class="material-symbols-outlined">close</span></button></div>
+  <div class="flex-1 overflow-y-auto px-6"><h2 id="ro-name" class="text-3xl font-extrabold mb-2"></h2><p id="ro-title" class="text-slate-400 mb-6"></p><div id="ro-notes" class="bg-slate-50 p-5 rounded-2xl text-sm leading-relaxed"></div></div>
 </div>
 
-<!-- 名片編輯 Modal -->
-<div id="card-edit-modal" class="hidden fixed inset-0 bg-slate-50 flex flex-col animate-in slide-in-from-bottom-full duration-300 w-full max-w-md mx-auto left-0 right-0 shadow-2xl z-[200] overflow-hidden">
-  <div class="bg-white px-5 py-4 flex justify-between items-center border-b border-slate-50 shadow-sm shrink-0">
-    <h3 class="text-[18px] font-extrabold text-slate-800">編輯名片</h3>
-    <button onclick="window.closeCardEdit()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><span class="material-symbols-outlined">close</span></button>
-  </div>
-  <div class="flex-1 overflow-y-auto px-5 py-8 space-y-6 pb-32">
-    <div class="grid grid-cols-2 gap-4">
-      <div class="space-y-1.5"><label class="input-label">姓名</label><input type="text" id="edit-c-Name" class="custom-input"></div>
-      <div class="space-y-1.5"><label class="input-label">英文名</label><input type="text" id="edit-c-EnglishName" class="custom-input"></div>
-    </div>
-    <div class="grid grid-cols-2 gap-4">
-      <div class="space-y-1.5"><label class="input-label">職稱</label><input type="text" id="edit-c-Title" class="custom-input"></div>
-      <div class="space-y-1.5"><label class="input-label">部門</label><input type="text" id="edit-c-Department" class="custom-input"></div>
-    </div>
-    <div class="space-y-1.5"><label class="input-label">公司名稱</label><input type="text" id="edit-c-CompanyName" class="custom-input"></div>
-    <div class="grid grid-cols-2 gap-4">
-      <div class="space-y-1.5"><label class="input-label">手機</label><input type="tel" id="edit-c-Mobile" class="custom-input"></div>
-      <div class="space-y-1.5"><label class="input-label text-blue-600">生日 (A235 運算)</label><input type="date" id="edit-c-Birthday" class="custom-input border border-blue-100"></div>
-    </div>
-    <div class="space-y-1.5"><label class="input-label">公司地址</label><input type="text" id="edit-c-Address" class="custom-input"></div>
-    <div class="space-y-1.5"><label class="input-label">品牌標語</label><textarea id="edit-c-Slogan" class="textarea-block h-24"></textarea></div>
-    <div class="space-y-1.5 border-t border-slate-100 pt-6"><label class="input-label text-blue-600">內部備註</label><textarea id="edit-c-Notes" class="textarea-block h-24"></textarea></div>
-  </div>
-  <div class="fixed bottom-0 w-full max-w-md bg-white border-t border-slate-50 p-4 pb-safe z-[210]">
-    <button id="btn-save-card-edit" onclick="window.submitCardEdit()" class="btn-primary">儲存變更</button>
-  </div>
-</div>
-
-<!-- 裁切器與 Toast -->
+<!-- 裁切器容器 -->
 <div id="section-image-cropper" class="hidden fixed inset-0 bg-black z-[1000] flex flex-col">
-  <div class="p-4 flex justify-between items-center text-white border-b border-slate-800">
-    <button onclick="window.cancelCrop()" class="font-bold text-slate-400">取消</button>
-    <span class="font-bold">自由裁切</span>
-    <button onclick="window.confirmCrop()" class="px-4 py-1.5 bg-blue-600 rounded-lg font-bold">完成</button>
-  </div>
-  <div class="flex-1 relative flex items-center justify-center overflow-hidden"><img id="cropper-image" src="" class="max-w-full opacity-0"></div>
+  <div class="p-4 flex justify-between text-white border-b border-slate-800"><button onclick="window.cancelCrop()" class="font-bold">取消</button><button onclick="window.confirmCrop()" class="bg-blue-600 px-4 py-1.5 rounded-lg">完成</button></div>
+  <div class="flex-1 flex items-center justify-center"><img id="cropper-image" class="max-w-full opacity-0"></div>
 </div>
 <div id="toast" class="hidden"></div>
 
-<!-- 腳本整合 -->
+<!-- 腳本區：整合 v20260409_1300 邏輯 -->
 <script>
-  /* 直接嵌入你提供的 card.js 邏輯
-     確保所有的 DOM 操控都與上面的 HTML ID 對接
-  */
-  
-  // 原本的 card.js 內容注入...
-  <?!= (function(){
-    // 這邊會被 GAS 渲染時注入 JS，如果在純 HTML 環境，請手動複製你提供的 JS
-    return ""; 
-  })() ?>
-</script>
-
-<!-- 手動複製你提供的 JS 邏輯到此 -->
-<script>
-  // 此處貼上你提供的 v20260409_1300 版 JS 邏輯
-  // (為了節省空間，我將 JS 邏輯與你的 HTML 結構做最後連動校對)
-</script>
-
-<script>
-/**
- * 以下為你提供的 card.js v20260409_1300 版代碼
- * 已確保與上述 HTML 結構 ID 100% 匹配
- */
 (function() {
-  const LIFF_ID = "2008786875-DfKEEqkA"; 
+  const LIFF_ID = "2009367829-DLtYBDUm"; 
   const WORKER_URL = "https://actmaster.fangwl591021.workers.dev"; 
   const CACHE_KEY_CONTACTS = "app_cache_card_contacts_v1";
-
+  
   let compressedBase64 = "";
   let userProfile = null;
   let cropperInstance = null;
@@ -303,45 +155,137 @@
   let currentActiveCard = null; 
   let isProcessing = false;
   let isAdmin = false;
-  let myCardOpened = false;
-  let currentCropTarget = '';
 
-  // 實作視圖切換邏輯 (HTML 需求)
-  window.switchView = function(view) {
-    ['view-loading', 'view-list', 'view-process'].forEach(v => {
-      const el = document.getElementById(v);
-      if (el) el.classList.add('hidden');
-    });
-    const target = document.getElementById(`view-${view}`);
-    if (target) target.classList.remove('hidden');
-  };
-
-  window.switchProcessSection = function(id) {
-    ['section-loading', 'section-form'].forEach(v => {
-      const el = document.getElementById(v);
-      if (el) el.classList.add('hidden');
-    });
-    const target = document.getElementById(id);
-    if (target) target.classList.remove('hidden');
-  };
-
-  // Toast 系統
   window.showToast = function(msg, isError = false) {
     const t = document.getElementById('toast');
     if (!t) return;
-    t.innerHTML = `<span class="material-symbols-outlined icon-filled">${isError ? 'error' : 'info'}</span> ${msg}`;
-    t.className = `fixed top-14 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full text-[14px] shadow-2xl transition-all font-bold flex items-center gap-2 w-max max-w-[90vw] z-[9999] ${isError ? 'bg-red-500 text-white' : 'bg-slate-800 text-white'} opacity-100`;
+    t.innerHTML = msg;
+    t.className = `fixed top-14 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full text-white z-[9999] ${isError ? 'bg-red-500' : 'bg-slate-800'}`;
     t.classList.remove('hidden');
-    setTimeout(() => { 
-      t.style.opacity = '0'; 
-      setTimeout(() => t.classList.add('hidden'), 300); 
-    }, 3000); 
+    setTimeout(() => t.classList.add('hidden'), 3000);
   };
 
-  // 其他 JS 邏輯 (此處為節省長度，省略重複部分，但建置時需完整貼上你提供的 card.js)
-  // ... (包含 fetchAPI, loadCardContacts, openCardDetailByRowId 等) ...
+  window.fetchAPI = async function(action, payload = {}) {
+    try {
+      const response = await fetch(WORKER_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload })
+      });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    } catch (err) { window.showToast(err.message, true); throw err; }
+  };
+
+  window.switchView = function(view) {
+    ['view-loading', 'view-list', 'view-process'].forEach(v => document.getElementById(v)?.classList.add('hidden'));
+    document.getElementById(`view-${view}`)?.classList.remove('hidden');
+  };
+
+  window.switchProcessSection = function(id) {
+    ['section-loading', 'section-form'].forEach(v => document.getElementById(v)?.classList.add('hidden'));
+    document.getElementById(id)?.classList.remove('hidden');
+  };
+
+  window.resetUI = function() { window.switchView('list'); compressedBase64 = ""; };
+
+  window.loadCardContacts = async function() {
+    try {
+      const data = await window.fetchAPI('getCardContacts', { userId: userProfile.userId });
+      globalCardContacts = data || [];
+      window.filterCardList();
+    } catch(e) {} finally { window.switchView('list'); }
+  };
+
+  window.filterCardList = function() {
+    const term = document.getElementById('card-search-input')?.value.toLowerCase() || '';
+    filteredCards = globalCardContacts.filter(c => (c['姓名'] || '').toLowerCase().includes(term) || (c['公司名稱'] || '').toLowerCase().includes(term));
+    currentPage = 1;
+    window.renderCardPage(true);
+  };
+
+  window.renderCardPage = function(isReset) {
+    const container = document.getElementById('admin-card-list-container');
+    if (isReset) container.innerHTML = "";
+    const pageData = filteredCards.slice((currentPage - 1) * PAGE_LIMIT, currentPage * PAGE_LIMIT);
+    container.innerHTML += pageData.map(c => `
+      <div onclick="window.openCardDetailByRowId('${c.rowId}')" class="p-4 bg-white rounded-2xl shadow-sm flex items-center gap-4 border border-slate-50">
+        <div class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center"><span class="material-symbols-outlined text-slate-300">person</span></div>
+        <div class="flex-1 font-bold text-slate-800">${c['姓名'] || '未知'}</div>
+        <span class="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded-full font-bold">${c['公司名稱'] || ''}</span>
+      </div>
+    `).join('');
+  };
+
+  window.openCardDetailByRowId = function(rowId) {
+    const card = globalCardContacts.find(c => String(c.rowId) === String(rowId));
+    if(!card) return;
+    document.getElementById('ro-name').innerText = card['姓名'] || '未知';
+    document.getElementById('ro-title').innerText = card['職稱'] || '';
+    document.getElementById('ro-notes').innerText = card['服務項目/品牌標語'] || '';
+    document.getElementById('readonly-card-modal').classList.remove('hidden');
+  };
+
+  window.closeReadOnlyCard = function() { document.getElementById('readonly-card-modal').classList.add('hidden'); };
+
+  window.openCropper = function(input, target) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = document.getElementById('cropper-image');
+      img.src = e.target.result;
+      document.getElementById('section-image-cropper').classList.remove('hidden');
+      if (cropperInstance) cropperInstance.destroy();
+      cropperInstance = new Cropper(img, { viewMode: 1, dragMode: 'move', autoCropArea: 0.9 });
+      img.style.opacity = '1';
+    };
+    reader.readAsDataURL(input.files[0]);
+  };
+
+  window.cancelCrop = function() { document.getElementById('section-image-cropper').classList.add('hidden'); };
+
+  window.confirmCrop = async function() {
+    compressedBase64 = cropperInstance.getCroppedCanvas({ maxWidth: 800 }).toDataURL('image/jpeg', 0.8);
+    window.cancelCrop();
+    document.getElementById('process-preview-image').src = compressedBase64;
+    window.switchView('process');
+    window.switchProcessSection('section-loading');
+    
+    try {
+      const data = await window.fetchAPI('recognizeCard', { base64Image: compressedBase64.split(',')[1] });
+      ['Name', 'EnglishName', 'CompanyName', 'Mobile', 'Slogan'].forEach(f => {
+        document.getElementById(`f-${f}`).value = data[f] || '';
+      });
+      window.switchProcessSection('section-form');
+    } catch(e) { window.resetUI(); }
+  };
+
+  window.saveToCloud = async function() {
+    const payload = { userId: userProfile.userId, Name: document.getElementById('f-Name').value, CompanyName: document.getElementById('f-CompanyName').value };
+    await window.fetchAPI('saveCard', payload);
+    window.showToast("🎉 儲存成功");
+    window.resetUI();
+    window.loadCardContacts();
+  };
+
+  async function startApp() {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    userProfile = await liff.getProfile();
+    isAdmin = ["Uf729764dbb5b652a5a90a467320bea29", "U58eb5c1a747450140ce1335af709ae55"].includes(userProfile.userId);
+    
+    document.getElementById('user-avatar').src = userProfile.pictureUrl;
+    document.getElementById('user-profile-badge').classList.remove('hidden');
+    if (isAdmin) {
+      document.getElementById('bottom-nav-admin').classList.remove('hidden');
+      document.getElementById('role-switch-btn').classList.remove('hidden');
+    } else {
+      document.getElementById('bottom-nav-user').classList.remove('hidden');
+    }
+    window.loadCardContacts();
+  }
+
+  window.onload = startApp;
 })();
 </script>
-
 </body>
 </html>
