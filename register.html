@@ -51,8 +51,8 @@
 </div>
 
 <script>
-  // 確保此 URL 與你的 Cloudflare Worker 100% 一致
-  const WORKER_URL = "https://actmaster.fangwl591021.workers.dev"; 
+  // ✅ 已修正為正確的 Worker 網址
+  const WORKER_URL = "https://actsaas.fangwl591021.workers.dev"; 
   let userId = null;
 
   async function init() {
@@ -64,7 +64,6 @@
       }
       const profile = await liff.getProfile();
       userId = profile.userId;
-      console.log("LIFF 載入成功，UID:", userId);
     } catch (e) {
       alert("LIFF 初始化異常，請確認 LINE OA 開啟環境");
     }
@@ -78,11 +77,10 @@
     if (!tName || !lName) { alert("請填寫完整資訊"); return; }
     if (!userId) { alert("無法取得用戶身份，請重新開啟頁面"); return; }
 
-    btn.innerText = "正在展開雲端空間...";
+    btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[20px]">refresh</span> 正在展開雲端空間...';
     btn.disabled = true;
 
     try {
-      // 傳送 payload 至 Worker，注意變數名稱對齊後端
       const response = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,6 +106,7 @@
       }
     } catch (e) {
       alert("連線失敗，請檢查 Worker URL 與 CORS 設定");
+      btn.innerText = "啟動雲端自動建置";
       btn.disabled = false;
     }
   }
