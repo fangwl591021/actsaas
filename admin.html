@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-  <title>ACTMASTER SaaS 數據中心</title>
+  <title>名片收割機 SaaS 數據中心</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -27,7 +27,7 @@
     <div class="p-8 mb-4">
       <div class="text-[20px] font-bold text-green-600 flex items-center gap-2">
         <span class="material-symbols-outlined text-[28px]">monitoring</span>
-        宏學管理站
+        名片收割機
       </div>
     </div>
 
@@ -47,7 +47,7 @@
     </nav>
 
     <div class="p-6 border-t border-gray-100">
-      <button onclick="window.location.href='card.html'" class="w-full py-2 bg-gray-100 text-gray-500 text-[12px] flex items-center justify-center gap-2">
+      <button onclick="window.location.href='card.html'" class="w-full py-2 bg-gray-100 text-gray-500 text-[12px] flex items-center justify-center gap-2 active:bg-gray-200">
         <span class="material-symbols-outlined text-[18px]">smartphone</span> 手機介面預覽
       </button>
     </div>
@@ -55,19 +55,17 @@
 
   <!-- 右側主區域 -->
   <main class="flex-1 overflow-y-auto bg-gray-50/50">
-    <!-- Header -->
     <header class="bg-white border-b border-gray-100 px-10 py-4 flex justify-between items-center sticky top-0 z-10">
       <div class="text-[18px] text-gray-800 tracking-tight">數據中心</div>
       <div class="flex items-center gap-6">
-        <div class="text-[11px] text-gray-300">SYSTEM_AUTH_STABLE</div>
-        <button onclick="location.reload()" class="text-green-600 text-[13px] flex items-center gap-1">
+        <div class="text-[11px] text-gray-300">SYSTEM_STABLE_V8</div>
+        <button onclick="location.reload()" class="text-green-600 text-[13px] flex items-center gap-1 hover:underline">
           <span class="material-symbols-outlined text-[16px]">sync</span> 重新同步數據
         </button>
       </div>
     </header>
 
     <div class="p-10">
-      <!-- 統計指標 -->
       <div class="grid grid-cols-4 gap-6 mb-10">
         <div class="stat-box">
           <div class="text-[12px] text-gray-400">總租戶 (Tenants)</div>
@@ -79,15 +77,14 @@
         </div>
         <div class="stat-box">
           <div class="text-[12px] text-gray-400">系統版本代碼</div>
-          <div class="text-[32px] text-blue-500">v4.2</div>
+          <div class="text-[32px] text-blue-500">v8.1</div>
         </div>
         <div class="stat-box">
           <div class="text-[12px] text-gray-400">累計處理名片</div>
-          <div class="text-[32px] text-gray-800">1.2k</div>
+          <div class="text-[32px] text-gray-800">1.5k</div>
         </div>
       </div>
 
-      <!-- 租戶表格 -->
       <div class="bg-white border border-gray-100">
         <table class="w-full admin-table">
           <thead class="bg-gray-50/30">
@@ -102,7 +99,6 @@
           <tbody id="tenant-rows"></tbody>
         </table>
 
-        <!-- 載入中 -->
         <div id="loading" class="py-24 text-center">
           <div class="w-6 h-6 border-2 border-gray-200 border-t-green-500 animate-spin mx-auto mb-4" style="border-radius: 50% !important;"></div>
           <div class="text-gray-300 text-[13px]">正在彙整雲端租戶數據</div>
@@ -120,7 +116,6 @@
     try {
       await liff.init({ liffId: LIFF_ID });
       if (!liff.isLoggedIn()) { liff.login(); return; }
-      
       const profile = await liff.getProfile();
       if (profile.userId !== SUPER_ADMIN) {
         alert("權限不足");
@@ -128,7 +123,7 @@
         return;
       }
       fetchData(profile.userId);
-    } catch (e) {}
+    } catch (e) { console.error(e); }
   }
 
   async function fetchData(uid) {
@@ -145,7 +140,7 @@
         document.getElementById('stat-active').innerText = result.data.filter(t => t.status === 'Active').length;
         renderRows(result.data);
       }
-    } catch (e) {}
+    } catch (e) { console.error(e); }
   }
 
   function renderRows(tenants) {
@@ -168,7 +163,6 @@
       </tr>
     `).join('');
   }
-
   window.onload = init;
 </script>
 </body>
