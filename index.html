@@ -19,7 +19,7 @@
   </div>
 
   <script>
-    // 確保這裡的 URL 與你的 Worker 一致
+    // 確保這裡的 URL 與你的 Cloudflare Worker 100% 一致
     const WORKER_URL = "https://actmaster.fangwl591021.workers.dev"; 
     
     async function initRouter() {
@@ -48,8 +48,8 @@
         const result = await response.json();
 
         // 3. 根據結果進行路由跳轉 (Router)
+        // 如果 Worker 回傳成功，而且 isAuthorized 為 true，代表已經註冊並建表完畢
         if (result.success && result.data && result.data.isAuthorized) {
-          // 已註冊，跳轉至名片管理主畫面
           window.location.replace('card.html');
         } else {
           // 未註冊或找不到資料，跳轉至註冊申請頁面
@@ -63,7 +63,7 @@
       }
     }
 
-    // 絕對不要在這裡寫 google.script.run
+    // 啟動路由
     window.onload = initRouter;
   </script>
 </body>
