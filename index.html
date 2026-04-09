@@ -1,55 +1,70 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-  <base target="_top">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ACTMASTER 智慧名片</title>
-  <?!= include('css'); ?>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+  <title>ACTMASTER 系統載入中</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { background-color: #f8f9fa; font-family: -apple-system, sans-serif; }
+  </style>
 </head>
-<body>
-  <div id="app">
-    <section class="card-header">
-      <div class="avatar" id="userAvatar"></div>
-      <h2 id="userName">載入中...</h2>
-      <p id="userTitle">專業顧問</p>
-    </section>
+<body class="flex items-center justify-center min-h-screen">
 
-    <section class="personality-section">
-      <div class="tag-container" id="personalityTag">
-        <span>分析中...</span>
-      </div>
-      <p class="strategy-hint" id="strategyHint">正在讀取您的專屬溝通建議...</p>
-    </section>
-
-    <section class="action-grid">
-      <button onclick="handleAction('INTEREST')">了解產品</button>
-      <button onclick="handleAction('DESIRE')">預約諮詢</button>
-      <button onclick="handleAction('ACTION')">立即成交</button>
-    </section>
-
-    <footer>
-      <p>Powered by ACTMASTER SaaS</p>
-    </footer>
+  <!-- 極簡載入畫面 -->
+  <div class="text-center">
+    <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+    <h2 id="status-text" class="text-[15px] font-bold text-slate-700 tracking-widest">身分驗證中...</h2>
   </div>
 
-  <?!= include('js'); ?>
   <script>
-    window.onload = function() {
-      // 初始化 LIFF 或 呼叫 GAS 取得資料
-      google.script.run.withSuccessHandler(renderCard).getCardData();
-    };
+    // 確保這裡的 URL 與你的 Worker 一致
+    const WORKER_URL = "https://actmaster.fangwl591021.workers.dev"; 
+    
+    async function initRouter() {
+      try {
+        // 1. LIFF 初始化與登入
+        await liff.init({ liffId: "2008786875-DfKEEqkA" });
+        if (!liff.isLoggedIn()) {
+          liff.login({ redirectUri: window.location.href });
+          return;
+        }
+        
+        const profile = await liff.getProfile();
+        const userId = profile.userId;
+        document.getElementById('status-text').innerText = "連線 SaaS 雲端...";
 
-    function renderCard(data) {
-      document.getElementById('userName').innerText = data.name;
-      document.getElementById('personalityTag').innerHTML = `<span>${data.tag}</span>`;
-      document.getElementById('strategyHint').innerText = data.strategy;
+        // 2. 詢問 Worker 該用戶是否已註冊 (對接 main.gs 的 checkUser)
+        const response = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'checkUser',
+            payload: { userId: userId }
+          })
+        });
+        
+        const result = await response.json();
+
+        // 3. 根據結果進行路由跳轉 (Router)
+        if (result.success && result.data && result.data.isAuthorized) {
+          // 已註冊，跳轉至名片管理主畫面
+          window.location.replace('card.html');
+        } else {
+          // 未註冊或找不到資料，跳轉至註冊申請頁面
+          window.location.replace('register.html');
+        }
+        
+      } catch (err) {
+        console.error(err);
+        document.getElementById('status-text').innerText = "系統連線失敗，請稍後再試";
+        document.getElementById('status-text').classList.add('text-red-500');
+      }
     }
 
-    function handleAction(type) {
-      google.script.run.logAidaAction(type);
-      alert('已收到您的請求，AI 助理將立即與您聯繫。');
-    }
+    // 絕對不要在這裡寫 google.script.run
+    window.onload = initRouter;
   </script>
 </body>
 </html>
