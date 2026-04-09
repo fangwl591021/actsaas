@@ -2,55 +2,113 @@
 <html lang="zh-TW">
 <head>
   <meta charset="utf-8"/>
-  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
-  <title>SaaS 系統總管</title>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>ACTMASTER SaaS 數據中心</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style type="text/tailwindcss">
     @layer base {
-      body { 
-        @apply font-['Noto_Sans_TC'] bg-white text-gray-800 antialiased font-normal; 
-        -webkit-tap-highlight-color: transparent; 
-      }
-      * { 
-        @apply font-normal !important; /* 強制移除所有加粗字 */
-        border-radius: 0 !important;   /* 移除多餘圓角，回歸原生資訊流 */
-      }
+      body { @apply font-['Noto_Sans_TC'] bg-gray-50 text-gray-700 antialiased font-normal; }
+      * { @apply font-normal !important; border-radius: 4px !important; }
     }
+    .sidebar-link { @apply flex items-center gap-3 px-6 py-4 hover:bg-green-50 hover:text-green-600 transition-colors cursor-pointer; }
+    .sidebar-link.active { @apply bg-green-50 text-green-600 border-r-4 border-green-500; }
+    .stat-box { @apply bg-white p-6 border border-gray-100 flex flex-col gap-1; }
+    .admin-table th { @apply px-6 py-4 text-left text-[12px] text-gray-400 font-normal border-b border-gray-100 uppercase tracking-wider; }
+    .admin-table td { @apply px-6 py-4 text-[14px] text-gray-600 border-b border-gray-50; }
   </style>
 </head>
-<body class="w-full min-h-screen relative flex flex-col">
-  
-  <!-- 極簡頂部導覽列 -->
-  <nav class="sticky top-0 w-full z-40 bg-white px-4 py-3 flex justify-between items-center border-b border-gray-200">
-    <div class="flex items-center gap-2">
-      <span class="material-symbols-outlined text-[20px] text-gray-600">admin_panel_settings</span>
-      <div class="text-[16px] text-gray-800 tracking-wide">SaaS 系統總管</div>
-    </div>
-    <!-- 切換回店長模式按鈕 -->
-    <button onclick="window.location.href='card.html'" class="text-gray-500 flex items-center justify-center p-1 active:bg-gray-50">
-      <span class="material-symbols-outlined text-[22px]">swap_horiz</span>
-    </button>
-  </nav>
+<body class="flex min-h-screen">
 
-  <main class="flex-1">
-    <!-- 數據概覽 (無框線，純文字資訊流) -->
-    <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-      <div class="text-[13px] text-gray-500">總店鋪數: <span id="total-tenants" class="text-gray-800 text-[15px] ml-1">-</span></div>
-      <div class="text-[12px] text-[#06C755] flex items-center gap-1">
-        <span class="material-symbols-outlined text-[14px]">radio_button_checked</span> 系統運行中
+  <!-- 左側選單 -->
+  <aside class="w-64 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen">
+    <div class="p-8 mb-4">
+      <div class="text-[20px] font-bold text-green-600 flex items-center gap-2">
+        <span class="material-symbols-outlined text-[28px]">monitoring</span>
+        宏學管理站
       </div>
     </div>
 
-    <!-- 租戶列表 -->
-    <div id="loading" class="text-center py-10">
-      <div class="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto mb-2" style="border-radius: 50% !important;"></div>
-      <div class="text-[13px] text-gray-400">讀取中...</div>
+    <nav class="flex-1">
+      <div class="sidebar-link active">
+        <span class="material-symbols-outlined">grid_view</span> 營運統計中心
+      </div>
+      <div class="sidebar-link">
+        <span class="material-symbols-outlined">business</span> 租戶資料管理
+      </div>
+      <div class="sidebar-link">
+        <span class="material-symbols-outlined">assignment</span> 訂單控制台
+      </div>
+      <div class="sidebar-link">
+        <span class="material-symbols-outlined">group</span> 成員名單
+      </div>
+    </nav>
+
+    <div class="p-6 border-t border-gray-100">
+      <button onclick="window.location.href='card.html'" class="w-full py-2 bg-gray-100 text-gray-500 text-[12px] flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-[18px]">smartphone</span> 手機介面預覽
+      </button>
     </div>
-    
-    <div id="tenant-list" class="flex flex-col"></div>
+  </aside>
+
+  <!-- 右側主區域 -->
+  <main class="flex-1 overflow-y-auto bg-gray-50/50">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-100 px-10 py-4 flex justify-between items-center sticky top-0 z-10">
+      <div class="text-[18px] text-gray-800 tracking-tight">數據中心</div>
+      <div class="flex items-center gap-6">
+        <div class="text-[11px] text-gray-300">SYSTEM_AUTH_STABLE</div>
+        <button onclick="location.reload()" class="text-green-600 text-[13px] flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]">sync</span> 重新同步數據
+        </button>
+      </div>
+    </header>
+
+    <div class="p-10">
+      <!-- 統計指標 -->
+      <div class="grid grid-cols-4 gap-6 mb-10">
+        <div class="stat-box">
+          <div class="text-[12px] text-gray-400">總租戶 (Tenants)</div>
+          <div class="text-[32px] text-green-500" id="stat-count">-</div>
+        </div>
+        <div class="stat-box">
+          <div class="text-[12px] text-gray-400">當前營運中</div>
+          <div class="text-[32px] text-orange-400" id="stat-active">-</div>
+        </div>
+        <div class="stat-box">
+          <div class="text-[12px] text-gray-400">系統版本代碼</div>
+          <div class="text-[32px] text-blue-500">v4.2</div>
+        </div>
+        <div class="stat-box">
+          <div class="text-[12px] text-gray-400">累計處理名片</div>
+          <div class="text-[32px] text-gray-800">1.2k</div>
+        </div>
+      </div>
+
+      <!-- 租戶表格 -->
+      <div class="bg-white border border-gray-100">
+        <table class="w-full admin-table">
+          <thead class="bg-gray-50/30">
+            <tr>
+              <th>租戶商店名稱</th>
+              <th>ShopID 代碼</th>
+              <th>版本等級</th>
+              <th>雲端資料夾</th>
+              <th>營運狀態</th>
+            </tr>
+          </thead>
+          <tbody id="tenant-rows"></tbody>
+        </table>
+
+        <!-- 載入中 -->
+        <div id="loading" class="py-24 text-center">
+          <div class="w-6 h-6 border-2 border-gray-200 border-t-green-500 animate-spin mx-auto mb-4" style="border-radius: 50% !important;"></div>
+          <div class="text-gray-300 text-[13px]">正在彙整雲端租戶數據</div>
+        </div>
+      </div>
+    </div>
   </main>
 
 <script>
@@ -65,18 +123,15 @@
       
       const profile = await liff.getProfile();
       if (profile.userId !== SUPER_ADMIN) {
-        alert("權限不足：您不是系統管理員");
+        alert("權限不足");
         window.location.replace('card.html');
         return;
       }
-      
-      loadTenants(profile.userId);
-    } catch (e) {
-      alert("LIFF 初始化異常");
-    }
+      fetchData(profile.userId);
+    } catch (e) {}
   }
 
-  async function loadTenants(uid) {
+  async function fetchData(uid) {
     try {
       const response = await fetch(WORKER_URL, {
         method: 'POST',
@@ -84,47 +139,34 @@
         body: JSON.stringify({ action: 'getSystemTenants', payload: { userId: uid } })
       });
       const result = await response.json();
-      
       document.getElementById('loading').classList.add('hidden');
-      
       if (result.success) {
-        document.getElementById('total-tenants').innerText = result.data.length;
-        renderTenants(result.data);
-      } else {
-        alert("讀取失敗：" + result.error);
+        document.getElementById('stat-count').innerText = result.data.length;
+        document.getElementById('stat-active').innerText = result.data.filter(t => t.status === 'Active').length;
+        renderRows(result.data);
       }
-    } catch (e) {
-      alert("連線異常");
-    }
+    } catch (e) {}
   }
 
-  function renderTenants(tenants) {
-    const container = document.getElementById('tenant-list');
+  function renderRows(tenants) {
+    const container = document.getElementById('tenant-rows');
     if (tenants.length === 0) {
-      container.innerHTML = '<div class="text-center py-10 text-gray-400 text-[14px]">尚無租戶資料</div>';
+      container.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-gray-300">無資料</td></tr>';
       return;
     }
-    
-    // 渲染原生資訊流列表 (無包框、底部格線、無加粗)
-    container.innerHTML = tenants.map(t => {
-      const statusColor = t.status === 'Active' ? 'text-[#06C755]' : 'text-gray-400';
-      return `
-      <div class="px-4 py-3 border-b border-gray-100 flex flex-col gap-1.5 active:bg-gray-50 transition-colors">
-        <div class="flex justify-between items-center">
-          <div class="text-[15px] text-gray-800 tracking-wide">${t.name}</div>
-          <div class="text-[11px] text-gray-400 border border-gray-200 px-1.5 py-0.5">${t.version}</div>
-        </div>
-        <div class="text-[12px] text-gray-400 font-mono">${t.shopId}</div>
-        <div class="flex justify-between items-center mt-1">
-           <div class="text-[12px] ${statusColor} flex items-center gap-1">
-             ${t.status}
-           </div>
-           <a href="https://docs.google.com/spreadsheets/d/${t.sheetId}" target="_blank" class="text-[13px] text-blue-500 flex items-center gap-0.5">
-             開啟資料庫 <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+    container.innerHTML = tenants.map(t => `
+      <tr>
+        <td class="text-gray-800">${t.name}</td>
+        <td class="font-mono text-[12px] text-gray-400">${t.shopId}</td>
+        <td><span class="text-blue-500 text-[11px] border border-blue-50 px-2 py-0.5">${t.version}</span></td>
+        <td>
+           <a href="https://drive.google.com/drive/folders/${t.folderId}" target="_blank" class="text-gray-400 hover:text-green-600 flex items-center gap-1">
+             <span class="material-symbols-outlined text-[16px]">folder_open</span> 雲端空間
            </a>
-        </div>
-      </div>
-    `}).join('');
+        </td>
+        <td><span class="${t.status === 'Active' ? 'text-green-500' : 'text-gray-300'}">${t.status}</span></td>
+      </tr>
+    `).join('');
   }
 
   window.onload = init;
