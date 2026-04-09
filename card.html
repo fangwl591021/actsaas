@@ -186,6 +186,7 @@
   let globalCards = [];
   let cropper = null;
 
+  // 全域錯誤處理
   window.addEventListener("unhandledrejection", (e) => {
     const errText = e.reason ? (e.reason.message || e.reason.toString()) : "未知錯誤";
     document.getElementById('global-error-text').innerText = "攔截到錯誤：\n" + errText;
@@ -201,30 +202,49 @@
       document.getElementById('user-avatar').src = userProfile.pictureUrl;
       document.getElementById('user-profile-badge').classList.remove('hidden');
 
-      // 身分驗證
+      // 執行身分驗證
       const res = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'checkUser', payload: { userId: userProfile.userId } })
       });
       const auth = await res.json();
-      if (!auth.success) throw new Error("GAS 拒絕請求：" + (auth.error || "權限不足"));
       
-      localStorage.setItem('actsaas_role', auth.data.role);
-      localStorage.setItem('actsaas_shopId', auth.data.shopId);
+      // ✅ 修復邏輯：如果不是授權用戶，且也不是系統主，則導向註冊
+      const isSuperAdmin = SUPER_ADMINS.includes(userProfile.userId);
+      if (!auth.success || !auth.data.isAuthorized) {
+        if (!isSuperAdmin) {
+          window.location.replace('index.html'); // 未授權一般用戶導向路由
+          return;
+        }
+        // 系統主若未註冊，設定為 Guest 並顯示切換鈕
+        localStorage.setItem('actsaas_role', 'Guest');
+      } else {
+        localStorage.setItem('actsaas_role', auth.data.role);
+        localStorage.setItem('actsaas_shopId', auth.data.shopId);
+      }
 
-      if (SUPER_ADMINS.includes(userProfile.userId)) document.getElementById('role-switch-btn').classList.remove('hidden');
-      if (auth.data.role === 'Leader') document.getElementById('invite-btn').classList.remove('hidden');
+      // 顯示功能按鈕
+      if (isSuperAdmin) document.getElementById('role-switch-btn').classList.remove('hidden');
+      if (auth.data && auth.data.role === 'Leader') document.getElementById('invite-btn').classList.remove('hidden');
       
-      // 切換導覽列
-      if (auth.data.role === 'Leader') document.getElementById('bottom-nav-admin').classList.remove('hidden');
+      // 切換底部導覽列
+      if (auth.data && auth.data.role === 'Leader') document.getElementById('bottom-nav-admin').classList.remove('hidden');
       else document.getElementById('bottom-nav-user').classList.remove('hidden');
 
-      await loadCards();
+      // 如果未授權（系統主初次進入），不讀取名片列表
+      if (auth.data && auth.data.isAuthorized) {
+        await loadCards();
+      } else {
+        document.getElementById('view-loading').classList.add('hidden');
+        document.getElementById('view-list').classList.remove('hidden');
+        document.getElementById('admin-card-list-container').innerHTML = 
+          '<div class="text-center py-20 text-gray-400 text-[13px]">您尚未註冊商店，請點擊「名片辨識」開始。</div>';
+      }
     } catch (e) { throw e; }
   }
 
-  async function loadCards() {
+  window.loadCards = async function() {
     try {
       const res = await fetch(WORKER_URL, {
         method: 'POST',
@@ -232,8 +252,14 @@
         body: JSON.stringify({ action: 'getCardContacts', payload: { userId: userProfile.userId } })
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      globalCards = data.data;
+      
+      // ✅ 修復第 235 行：增加對 success 的安全判斷
+      if (!data.success) {
+        console.warn("無法取得名片清單:", data.error);
+        globalCards = [];
+      } else {
+        globalCards = data.data;
+      }
       renderCards();
     } catch(e) { throw e; }
     finally { 
@@ -244,7 +270,7 @@
 
   function renderCards() {
     const container = document.getElementById('admin-card-list-container');
-    if (globalCards.length === 0) {
+    if (!globalCards || globalCards.length === 0) {
       container.innerHTML = '<div class="text-center py-20 text-gray-200 text-[13px]">目前無名片資料</div>';
       return;
     }
@@ -269,28 +295,78 @@
       document.getElementById('process-preview-image').src = e.target.result;
       window.switchView('process');
       document.getElementById('section-loading').classList.remove('hidden');
-      simulateOCR(); // 這裡應改為實際 Worker OCR 呼叫
+      simulateOCR(e.target.result); 
     };
     reader.readAsDataURL(file);
   };
 
-  async function simulateOCR() {
-    // 這裡應對接你的 Worker: recognizeCard
-    setTimeout(() => {
-      document.getElementById('f-Name').value = "陳小明";
-      document.getElementById('f-CompanyName').value = "名片收割機科技";
-      document.getElementById('f-Slogan').value = "AI 助您快速收割所有人脈。";
+  async function simulateOCR(base64) {
+    // 此處對接 Worker 的 recognizeCard
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'recognizeCard', payload: { base64Image: base64.split(',')[1] } })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const card = data.data;
+        document.getElementById('f-Name').value = card.Name || "";
+        document.getElementById('f-EnglishName').value = card.EnglishName || "";
+        document.getElementById('f-CompanyName').value = card.CompanyName || "";
+        document.getElementById('f-Title').value = card.Title || "";
+        document.getElementById('f-Mobile').value = card.Mobile || "";
+        document.getElementById('f-Slogan').value = card.Slogan || "";
+      }
+    } catch (e) {
+      console.error("AI 辨識失敗", e);
+    } finally {
       document.getElementById('section-loading').classList.add('hidden');
       document.getElementById('section-form').classList.remove('hidden');
-    }, 1500);
+    }
   }
 
+  window.saveToCloud = async function() {
+    const btn = document.getElementById('btn-save');
+    btn.disabled = true;
+    btn.innerText = "儲存中...";
+    
+    const payload = {
+      userId: userProfile.userId,
+      Name: document.getElementById('f-Name').value,
+      CompanyName: document.getElementById('f-CompanyName').value,
+      Mobile: document.getElementById('f-Mobile').value,
+      Slogan: document.getElementById('f-Slogan').value
+    };
+
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'saveCard', payload })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("資料已成功存入雲端！");
+        window.resetUI();
+        await loadCards();
+      } else {
+        alert("儲存失敗: " + data.error);
+      }
+    } catch (e) {
+      alert("連線異常");
+    } finally {
+      btn.disabled = false;
+      btn.innerText = "確認存入雲端庫";
+    }
+  };
+
+  window.reloadCardContacts = () => loadCards();
   window.switchView = (view) => {
     document.getElementById('view-list').classList.add('hidden');
     document.getElementById('view-process').classList.add('hidden');
     document.getElementById(`view-${view}`).classList.remove('hidden');
   };
-
   window.resetUI = () => window.switchView('list');
 
   window.copyInviteLink = () => {
