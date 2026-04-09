@@ -1,41 +1,19 @@
-<!-- Version: v7.6.0 (名片收割機：QQ 完整功能版 - 導入裁切器與全欄位表單) -->
+<!-- Version: v7.6.5 (名片收割機：QQ 完整拍照/裁切/全欄位版 - 模擬 LINE OA 原生感) -->
 <!DOCTYPE html>
-<html class="light" lang="zh-TW">
+<html lang="zh-TW">
 <head>
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
-  <link rel="icon" href="data:,">
   <title>名片收割機</title>
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   
+  <!-- 裁切器資源 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
-  <script id="tailwind-config">
-    window.tailwind = window.tailwind || {};
-    window.tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: "#2563eb", 
-            "primary-light": "#eff6ff",
-            background: "#ffffff",
-            "text-main": "#0f172a",
-            "text-muted": "#64748b",
-            error: "#ef4444" 
-          },
-          fontFamily: {
-            headline: ["Manrope", "Noto Sans TC", "sans-serif"],
-            sans: ["Inter", "Noto Sans TC", "sans-serif"],
-          }
-        },
-      },
-    };
-  </script>
-  
   <style type="text/tailwindcss">
     @layer base {
       body { @apply font-['Noto_Sans_TC'] bg-white text-gray-800 antialiased font-normal; -webkit-tap-highlight-color: transparent; }
@@ -47,41 +25,31 @@
     
     /* LINE OA 原生底線樣式 */
     .input-label { @apply block text-[11px] text-gray-400 mb-1 uppercase tracking-widest pl-0; }
-    .custom-input { @apply w-full h-[42px] px-0 bg-transparent border-b border-gray-100 outline-none text-[15px] focus:border-primary transition-colors placeholder-gray-200 mb-4; }
-    .textarea-block { @apply w-full p-3 bg-gray-50 border-none outline-none text-[14px] text-gray-800 resize-none leading-relaxed placeholder-gray-300; }
+    .custom-input { @apply w-full h-[40px] px-0 bg-transparent border-b border-gray-100 outline-none text-[15px] focus:border-blue-500 transition-colors placeholder-gray-200 mb-4; }
+    .textarea-block { @apply w-full p-3 bg-gray-50 border-none outline-none text-[14px] text-gray-800 resize-none leading-relaxed placeholder-gray-300 mb-4; }
     
-    .btn-primary { @apply w-full py-4 bg-primary text-white text-[16px] active:opacity-80 transition-all flex items-center justify-center gap-2; }
-    .btn-secondary { @apply w-full py-4 bg-white border border-gray-200 text-gray-700 text-[16px] active:bg-gray-50 transition-all flex items-center justify-center gap-2; }
-    
+    .btn-primary { @apply w-full py-4 bg-blue-600 text-white text-[16px] active:opacity-80 transition-all flex items-center justify-center gap-2; }
     .nav-btn { @apply flex flex-col items-center justify-center transition-all flex-1 text-gray-400 h-full; min-width: 48px; }
-    .nav-active { @apply text-primary; }
+    .nav-active { @apply text-blue-600; }
     .nav-active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
-
-    .admin-nav-btn { @apply flex flex-col items-center justify-center transition-all flex-1 text-gray-500 h-full; min-width: 48px; }
-    .admin-nav-active { @apply text-[#06C755]; }
-    .admin-nav-active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
-
     .card-row { @apply px-4 py-4 border-b border-gray-50 flex items-center gap-4 active:bg-gray-50 transition-colors; }
     
-    /* 裁切器樣式 */
     #section-image-cropper { z-index: 2000; }
     .cropper-view-box, .cropper-face { border-radius: 0 !important; }
   </style>
 </head>
-<body class="w-full min-h-screen flex flex-col items-center">
+<body class="w-full min-h-screen bg-white">
 
 <div class="w-full bg-white min-h-screen relative flex flex-col">
   
-  <!-- 頂部導航 -->
+  <!-- Top Navbar -->
   <nav class="sticky top-0 w-full z-40 bg-white px-4 py-3.5 flex justify-between items-center border-b border-gray-100">
     <div class="text-[16px] text-gray-800 flex items-center gap-2 tracking-tight">
-      <span class="material-symbols-outlined text-[20px] text-primary">contact_mail</span>
-      名片收割機 <span class="text-[9px] text-primary bg-primary-light px-1.5 py-0.5 ml-1">v7.6.0</span>
+      <span class="material-symbols-outlined text-[20px] text-blue-600">contact_mail</span>
+      名片收割機 <span class="text-[9px] text-blue-600 bg-blue-50 px-1.5 py-0.5 ml-1">v7.6.5</span>
     </div>
     <div class="flex items-center gap-3">
-      <div id="user-profile-badge" class="hidden flex items-center gap-2">
-        <img id="user-avatar" src="" class="w-8 h-8 rounded-full object-cover" style="border-radius: 50% !important;">
-      </div>
+      <img id="user-avatar" src="" class="w-8 h-8 rounded-full" style="border-radius: 50% !important;">
       <button id="role-switch-btn" onclick="window.location.href='admin.html'" class="hidden text-gray-400 p-1">
         <span class="material-symbols-outlined text-[22px]">grid_view</span>
       </button>
@@ -90,22 +58,25 @@
 
   <main id="main-content" class="flex-1 pb-32">
     
-    <!-- 載入動畫 -->
+    <!-- Loading Screen -->
     <div id="view-loading" class="py-24 flex flex-col items-center justify-center space-y-4">
-      <div class="w-6 h-6 border-2 border-gray-200 border-t-primary animate-spin" style="border-radius: 50% !important;"></div>
-      <p id="loading-text" class="text-gray-300 text-[12px] tracking-widest">身分驗證中</p>
+      <div class="w-6 h-6 border-2 border-gray-200 border-t-blue-500 animate-spin" style="border-radius: 50% !important;"></div>
+      <p id="loading-text" class="text-gray-300 text-[12px] tracking-widest">系統身分驗證中</p>
     </div>
 
-    <!-- 主列表 -->
+    <!-- Main List View -->
     <div id="view-list" class="hidden">
-      <div id="admin-tools-container" class="px-4 py-6 border-b border-gray-100 bg-gray-50/30 text-center">
-        <div class="text-[14px] text-gray-400 mb-4 tracking-tight">AI 智慧名片辨識與深度分析</div>
+      <div class="px-4 py-6 border-b border-gray-100 bg-gray-50/30 text-center">
+        <div class="text-[14px] text-gray-400 mb-4 tracking-tight">AI 智慧辨識與收割人脈資料</div>
         <div class="flex gap-2 px-4">
-          <button onclick="document.getElementById('card-camera').click()" class="btn-primary flex-1 shadow-sm">辨識名片</button>
+          <!-- 核心：啟動相機/相簿按鈕 -->
+          <button onclick="document.getElementById('card-input').click()" class="btn-primary flex-1">
+            <span class="material-symbols-outlined text-[20px]">photo_camera</span> 辨識名片
+          </button>
           <button id="invite-btn" onclick="window.copyInviteLink()" class="hidden px-4 border border-gray-200 text-gray-500 text-[13px]">邀請成員</button>
         </div>
-        <input type="file" id="card-camera" accept="image/*" capture="environment" class="hidden" onchange="window.initCropper(this)">
-        <input type="file" id="card-upload" accept="image/*" class="hidden" onchange="window.initCropper(this)">
+        <!-- 隱藏的 Input 用於拍照或選取 -->
+        <input type="file" id="card-input" accept="image/*" capture="environment" class="hidden" onchange="window.initCropper(this)">
       </div>
 
       <div class="px-4 py-2 border-b border-gray-50 flex items-center bg-white sticky top-[53px] z-30">
@@ -117,102 +88,101 @@
       <div id="admin-card-list-container" class="flex flex-col"></div>
     </div>
 
-    <!-- 辨識處理表單 (詳細版) -->
+    <!-- Processing & Full Field Form View -->
     <div id="view-process" class="hidden animate-in slide-in-from-right duration-300">
       <div class="px-4 py-3 border-b border-gray-100 flex items-center gap-3 bg-white sticky top-[53px] z-30">
         <button onclick="window.resetUI()" class="text-gray-400 p-1"><span class="material-symbols-outlined">arrow_back</span></button>
-        <div class="text-[15px] text-gray-800">資料確認與儲存</div>
+        <div class="text-[15px] text-gray-800">辨識資料核對</div>
       </div>
 
       <div id="section-loading" class="hidden py-20 text-center">
-        <div class="w-6 h-6 border-2 border-gray-200 border-t-primary animate-spin mx-auto mb-3" style="border-radius: 50% !important;"></div>
-        <div class="text-[12px] text-gray-400 tracking-widest">AI 智慧分析精準定位中...</div>
+        <div class="w-6 h-6 border-2 border-gray-200 border-t-blue-500 animate-spin mx-auto mb-3" style="border-radius: 50% !important;"></div>
+        <div class="text-[12px] text-gray-400 tracking-widest">AI 正在深度解析名片內容...</div>
       </div>
 
-      <div id="section-form" class="hidden p-6 space-y-2">
-        <div class="w-full aspect-video bg-gray-50 mb-6 flex items-center justify-center border-b border-gray-100">
+      <!-- 詳細 29 欄位表單 -->
+      <div id="section-form" class="hidden p-6 pb-20">
+        <div class="w-full aspect-video bg-gray-50 mb-8 border-b border-gray-100 flex items-center justify-center">
           <img id="process-preview-image" src="" class="w-full h-full object-contain">
         </div>
 
-        <!-- 基礎資訊組 -->
-        <div class="grid grid-cols-2 gap-x-6">
-          <div><label class="input-label">姓名</label><input type="text" id="f-Name" class="custom-input"></div>
-          <div><label class="input-label">英文名</label><input type="text" id="f-EnglishName" class="custom-input"></div>
-        </div>
-        
-        <div class="grid grid-cols-2 gap-x-6">
+        <div class="space-y-1">
+          <div class="grid grid-cols-2 gap-x-6">
+            <div><label class="input-label">姓名</label><input type="text" id="f-Name" class="custom-input"></div>
+            <div><label class="input-label">英文名/別名</label><input type="text" id="f-EnglishName" class="custom-input"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-x-6">
+            <div><label class="input-label">職稱</label><input type="text" id="f-Title" class="custom-input"></div>
+            <div><label class="input-label">部門</label><input type="text" id="f-Department" class="custom-input"></div>
+          </div>
           <div><label class="input-label">公司名稱</label><input type="text" id="f-CompanyName" class="custom-input"></div>
-          <div><label class="input-label">統一編號</label><input type="text" id="f-TaxID" class="custom-input"></div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-x-6">
-          <div><label class="input-label">部門</label><input type="text" id="f-Department" class="custom-input"></div>
-          <div><label class="input-label">職稱</label><input type="text" id="f-Title" class="custom-input"></div>
-        </div>
-
-        <!-- 聯絡資訊組 -->
-        <div class="grid grid-cols-2 gap-x-6">
-          <div><label class="input-label">手機號碼</label><input type="tel" id="f-Mobile" class="custom-input"></div>
-          <div class="flex gap-2">
-            <div class="flex-1"><label class="input-label">電話</label><input type="text" id="f-Tel" class="custom-input"></div>
-            <div class="w-16"><label class="input-label">分機</label><input type="text" id="f-Ext" class="custom-input"></div>
+          <div class="grid grid-cols-2 gap-x-6">
+            <div><label class="input-label">統一編號</label><input type="text" id="f-TaxID" class="custom-input"></div>
+            <div><label class="input-label">手機號碼</label><input type="tel" id="f-Mobile" class="custom-input"></div>
+          </div>
+          <div class="grid grid-cols-3 gap-x-4">
+            <div class="col-span-2"><label class="input-label">公司電話</label><input type="text" id="f-Tel" class="custom-input"></div>
+            <div><label class="input-label">分機</label><input type="text" id="f-Ext" class="custom-input"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-x-6">
+            <div><label class="input-label">傳真</label><input type="text" id="f-Fax" class="custom-input"></div>
+            <div><label class="input-label">電子郵件</label><input type="email" id="f-Email" class="custom-input"></div>
+          </div>
+          <div><label class="input-label">公司地址</label><input type="text" id="f-Address" class="custom-input"></div>
+          <div class="grid grid-cols-2 gap-x-6">
+            <div><label class="input-label">公司網址</label><input type="url" id="f-Website" class="custom-input"></div>
+            <div><label class="input-label">社群帳號</label><input type="text" id="f-SocialMedia" class="custom-input"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-x-6">
+            <div><label class="input-label">LINE ID</label><input type="text" id="f-LineID" class="custom-input"></div>
+            <div><label class="input-label text-blue-500">自訂名片設定 (JSON)</label><input type="text" id="f-Config" class="custom-input"></div>
+          </div>
+          
+          <div class="pt-4">
+            <label class="input-label">服務項目 / 品牌標語</label>
+            <textarea id="f-Slogan" class="textarea-block h-20 text-[13px]"></textarea>
+          </div>
+          <div class="pt-2">
+            <label class="input-label">建檔人 / 互動備註</label>
+            <textarea id="f-Notes" class="textarea-block h-20 text-[13px]" placeholder="輸入您對此人的印象..."></textarea>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-x-6">
-          <div><label class="input-label">傳真</label><input type="text" id="f-Fax" class="custom-input"></div>
-          <div><label class="input-label">電子信箱</label><input type="email" id="f-Email" class="custom-input"></div>
-        </div>
-
-        <!-- 數位足跡組 -->
-        <div><label class="input-label">公司地址</label><input type="text" id="f-Address" class="custom-input"></div>
-        <div class="grid grid-cols-2 gap-x-6">
-          <div><label class="input-label">官方網站</label><input type="url" id="f-Website" class="custom-input"></div>
-          <div><label class="input-label">社群 ID</label><input type="text" id="f-SocialMedia" class="custom-input"></div>
-        </div>
-
-        <div class="pt-2">
-          <label class="input-label">AI 品牌擴寫標語</label>
-          <textarea id="f-Slogan" class="textarea-block h-28 text-[13px]"></textarea>
-        </div>
-
-        <div class="pt-8">
-          <button id="btn-save" onclick="window.saveToCloud()" class="btn-primary">確認存入年度雲端庫</button>
-          <p class="text-[11px] text-gray-300 text-center mt-3">資料將自動加密並同步至 Google 租戶試算表</p>
-        </div>
+        <button id="btn-save" onclick="window.saveToCloud()" class="btn-primary mt-8">確認存入年度雲端庫</button>
+        <p class="text-[11px] text-gray-300 text-center mt-3">加密傳輸至租戶年度資料表</p>
       </div>
     </div>
   </main>
 
-  <!-- 裁切器 Modal -->
-  <div id="section-image-cropper" class="hidden fixed inset-0 bg-black flex flex-col">
-    <div class="px-4 py-3 flex justify-between items-center text-white bg-black/50 backdrop-blur-md absolute top-0 w-full z-50">
-      <button onclick="window.cancelCrop()" class="text-gray-400 px-2 py-1">取消</button>
-      <div class="text-[14px]">縮放並移動名片</div>
-      <button onclick="window.confirmCrop()" class="bg-primary px-4 py-1 text-[14px]">完成裁切</button>
+  <!-- 裁切器 Modal (關鍵功能) -->
+  <div id="section-image-cropper" class="hidden fixed inset-0 bg-black flex flex-col z-[2000]">
+    <div class="px-4 py-3 flex justify-between items-center text-white bg-black/60 backdrop-blur-md absolute top-0 w-full z-50">
+      <button onclick="window.cancelCrop()" class="text-gray-400 px-3 py-1">取消</button>
+      <div class="text-[14px]">縮放名片至框內</div>
+      <button onclick="window.confirmCrop()" class="bg-blue-600 px-5 py-1 text-[14px]">完成裁切</button>
     </div>
-    <div class="flex-1 flex items-center justify-center">
+    <div class="flex-1 flex items-center justify-center bg-black">
       <img id="cropper-image" src="" class="max-w-full opacity-0">
     </div>
   </div>
 
-  <!-- 底部選單 -->
+  <!-- Bottom Tabs -->
   <nav id="bottom-nav-user" class="hidden fixed bottom-0 w-full bg-white border-t border-gray-100 flex justify-around py-2 h-16 items-center z-40">
     <div class="nav-btn nav-active"><span class="material-symbols-outlined text-[20px]">contact_page</span><span class="text-[10px] mt-1">名片</span></div>
-    <div class="nav-btn text-gray-300"><span class="material-symbols-outlined text-[20px]">psychology</span><span class="text-[10px] mt-1">配對</span></div>
-    <div class="nav-btn text-gray-300"><span class="material-symbols-outlined text-[20px]">person</span><span class="text-[10px] mt-1">設定</span></div>
+    <div onclick="window.location.href='fate.html'" class="nav-btn text-gray-300"><span class="material-symbols-outlined text-[20px]">psychology</span><span class="text-[10px] mt-1">配對</span></div>
+    <div onclick="window.location.href='index.html'" class="nav-btn text-gray-300"><span class="material-symbols-outlined text-[20px]">person</span><span class="text-[10px] mt-1">設定</span></div>
   </nav>
 
   <nav id="bottom-nav-admin" class="hidden fixed bottom-0 w-full bg-slate-900 border-t border-slate-800 flex justify-around py-2 h-16 items-center z-40">
-    <div class="admin-nav-btn admin-nav-active"><span class="material-symbols-outlined text-[20px]">contact_page</span><span class="text-[10px] mt-1">名片</span></div>
-    <div class="admin-nav-btn text-gray-500"><span class="material-symbols-outlined text-[20px]">groups</span><span class="text-[10px] mt-1">CRM</span></div>
-    <div class="admin-nav-btn text-gray-500"><span class="material-symbols-outlined text-[20px]">settings</span><span class="text-[10px] mt-1">參數</span></div>
+    <div class="admin-nav-btn text-blue-500"><span class="material-symbols-outlined text-[20px] icon-filled">contact_page</span><span class="text-[10px] mt-1">名片</span></div>
+    <div onclick="window.location.href='index.html'" class="admin-nav-btn text-gray-500"><span class="material-symbols-outlined text-[20px]">groups</span><span class="text-[10px] mt-1">CRM</span></div>
+    <div onclick="window.location.href='fate.html'" class="admin-nav-btn text-gray-500"><span class="material-symbols-outlined text-[20px]">psychology</span><span class="text-[10px] mt-1">配對</span></div>
   </nav>
 
-  <!-- 全域錯誤提示 -->
-  <div id="global-error-banner" class="hidden fixed top-4 left-1/2 -translate-x-1/2 w-[90%] bg-red-600 text-white p-4 z-[9999] text-[13px]">
+  <!-- Error Notification -->
+  <div id="global-error-banner" class="hidden fixed top-4 left-1/2 -translate-x-1/2 w-[90%] bg-red-600 text-white p-4 z-[9999] text-[13px] shadow-2xl">
     <div class="flex justify-between items-start">
-      <div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">warning</span>系統異常報告</div>
+      <div class="flex items-center gap-1.5 font-bold"><span class="material-symbols-outlined text-[18px]">warning</span>異常報告</div>
       <button onclick="this.parentElement.parentElement.classList.add('hidden')"><span class="material-symbols-outlined text-[16px]">close</span></button>
     </div>
     <p id="global-error-text" class="mt-2 break-all"></p>
@@ -225,15 +195,12 @@
   const WORKER_URL = "https://actsaas.fangwl591021.workers.dev"; 
   const SUPER_ADMINS = ["U94a7052d5af5e4f6b4efea79bfe26003"];
 
-  let userProfile = null;
-  let globalCards = [];
-  let cropperInstance = null;
+  let userProfile = null, globalCards = [], cropperInstance = null, lastAiFateTags = null, croppedBase64 = null;
 
   window.addEventListener("unhandledrejection", (e) => {
-    const errText = e.reason ? (e.reason.message || e.reason.toString()) : "未知錯誤";
-    document.getElementById('global-error-text').innerText = "攔截到錯誤：\n" + errText;
+    document.getElementById('global-error-text').innerText = e.reason?.message || e.reason;
     document.getElementById('global-error-banner').classList.remove('hidden');
-    document.getElementById('loading-text').innerText = "連線異常";
+    document.getElementById('view-loading').classList.add('hidden');
   });
 
   async function startApp() {
@@ -242,8 +209,8 @@
       if (!liff.isLoggedIn()) { liff.login(); return; }
       userProfile = await liff.getProfile();
       document.getElementById('user-avatar').src = userProfile.pictureUrl;
-      document.getElementById('user-profile-badge').classList.remove('hidden');
 
+      // Identity Verification
       const res = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,7 +220,7 @@
       
       const isSuperAdmin = SUPER_ADMINS.includes(userProfile.userId);
       if (!auth.success || !auth.data.isAuthorized) {
-        if (!isSuperAdmin) { window.location.replace('index.html'); return; }
+        if (!isSuperAdmin) { window.location.replace('register.html'); return; }
         localStorage.setItem('actsaas_role', 'Guest');
       } else {
         localStorage.setItem('actsaas_role', auth.data.role);
@@ -274,14 +241,14 @@
         document.getElementById('view-loading').classList.add('hidden');
         document.getElementById('view-list').classList.remove('hidden');
         document.getElementById('admin-card-list-container').innerHTML = 
-          '<div class="text-center py-20 text-gray-300 text-[13px]">您尚未註冊商店，請點擊「名片辨識」開始。</div>';
+          '<div class="text-center py-20 text-gray-300 text-[13px]">尚未註冊或建立名片，請點擊上方按鈕開始。</div>';
       }
-    } catch (e) { throw e; }
+    } catch (e) { console.error(e); }
   }
 
-  // --- 裁切器核心邏輯 ---
+  // --- Photo & Cropper Handling ---
   window.initCropper = (input) => {
-    if (!input.files || !input.files[0]) return;
+    if (!input.files?.[0]) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = document.getElementById('cropper-image');
@@ -290,10 +257,10 @@
       if (cropperInstance) cropperInstance.destroy();
       img.onload = () => {
         img.style.opacity = '1';
-        cropperInstance = new Cropper(img, {
-          aspectRatio: NaN,
-          viewMode: 1,
-          autoCropArea: 0.8
+        cropperInstance = new Cropper(img, { 
+          aspectRatio: NaN, 
+          viewMode: 1, 
+          autoCropArea: 0.8 
         });
       };
     };
@@ -302,132 +269,143 @@
 
   window.cancelCrop = () => {
     document.getElementById('section-image-cropper').classList.add('hidden');
-    document.getElementById('card-camera').value = '';
     if (cropperInstance) cropperInstance.destroy();
+    document.getElementById('card-input').value = '';
   };
 
   window.confirmCrop = async () => {
-    const canvas = cropperInstance.getCroppedCanvas({ maxWidth: 1024, maxHeight: 1024 });
-    const base64 = canvas.toDataURL('image/jpeg', 0.85);
+    const canvas = cropperInstance.getCroppedCanvas({ maxWidth: 1024 });
+    croppedBase64 = canvas.toDataURL('image/jpeg', 0.85);
     
     document.getElementById('section-image-cropper').classList.add('hidden');
-    document.getElementById('process-preview-image').src = base64;
+    document.getElementById('process-preview-image').src = croppedBase64;
     window.switchView('process');
+    
     document.getElementById('section-loading').classList.remove('hidden');
     document.getElementById('section-form').classList.add('hidden');
 
-    await runAIProcess(base64);
-  };
-
-  async function runAIProcess(base64) {
+    // Call AI OCR
     try {
-      const res = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'recognizeCard', payload: { base64Image: base64.split(',')[1] } })
+      const res = await fetch(WORKER_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ action: 'recognizeCard', payload: { base64Image: croppedBase64.split(',')[1] } }) 
       });
       const data = await res.json();
       if (data.success) {
         const c = data.data;
-        document.getElementById('f-Name').value = c.Name || "";
-        document.getElementById('f-EnglishName').value = c.EnglishName || "";
-        document.getElementById('f-CompanyName').value = c.CompanyName || "";
-        document.getElementById('f-TaxID').value = c.TaxID || "";
-        document.getElementById('f-Department').value = c.Department || "";
-        document.getElementById('f-Title').value = c.Title || "";
-        document.getElementById('f-Mobile').value = c.Mobile || "";
-        document.getElementById('f-Tel').value = c.Tel || "";
-        document.getElementById('f-Ext').value = c.Ext || "";
-        document.getElementById('f-Fax').value = c.Fax || "";
-        document.getElementById('f-Email').value = c.Email || "";
-        document.getElementById('f-Address').value = c.Address || "";
-        document.getElementById('f-Website').value = c.Website || "";
-        document.getElementById('f-SocialMedia').value = c.SocialMedia || "";
-        document.getElementById('f-Slogan').value = c.Slogan || "";
+        document.getElementById('f-Name').value = c.Name || '';
+        document.getElementById('f-EnglishName').value = c.EnglishName || '';
+        document.getElementById('f-Title').value = c.Title || '';
+        document.getElementById('f-Department').value = c.Department || '';
+        document.getElementById('f-CompanyName').value = c.CompanyName || '';
+        document.getElementById('f-TaxID').value = c.TaxID || '';
+        document.getElementById('f-Slogan').value = c.Slogan || '';
+        document.getElementById('f-Mobile').value = c.Mobile || '';
+        document.getElementById('f-Tel').value = c.Tel || '';
+        document.getElementById('f-Ext').value = c.Ext || '';
+        document.getElementById('f-Fax').value = c.Fax || '';
+        document.getElementById('f-Address').value = c.Address || '';
+        document.getElementById('f-Email').value = c.Email || '';
+        document.getElementById('f-Website').value = c.Website || '';
+        document.getElementById('f-SocialMedia').value = c.SocialMedia || '';
+        document.getElementById('f-LineID').value = c.LineID || '';
+        lastAiFateTags = { 
+          Personality: c.Personality || '', 
+          Hobbies: c.Hobbies || '', 
+          Wealth: c.Wealth || '', 
+          Health: c.Health || '', 
+          Career: c.Career || '' 
+        };
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("OCR Failed", e); }
     finally {
       document.getElementById('section-loading').classList.add('hidden');
       document.getElementById('section-form').classList.remove('hidden');
     }
-  }
-
-  // --- 資料同步與儲存 ---
-  window.loadCards = async function() {
-    try {
-      const res = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getCardContacts', payload: { userId: userProfile.userId } })
-      });
-      const data = await res.json();
-      globalCards = data.success ? data.data : [];
-      renderCards();
-    } catch(e) { console.warn(e); }
-    finally { 
-      document.getElementById('view-loading').classList.add('hidden');
-      document.getElementById('view-list').classList.remove('hidden'); 
-    }
   };
 
-  function renderCards() {
-    const container = document.getElementById('admin-card-list-container');
-    if (!globalCards || globalCards.length === 0) {
-      container.innerHTML = '<div class="text-center py-20 text-gray-200 text-[13px]">目前無名片資料</div>';
-      return;
-    }
-    container.innerHTML = globalCards.map(c => `
-      <div class="card-row">
-        <div class="w-10 h-10 bg-gray-50 flex items-center justify-center text-gray-200">
-          <span class="material-symbols-outlined text-[20px]">person</span>
-        </div>
-        <div class="flex-1">
-          <div class="text-[15px] text-gray-800 tracking-tight">${c.name}</div>
-          <div class="text-[11px] text-gray-400 mt-0.5">${c.company || '未知機構'}</div>
-        </div>
-        <div class="text-[10px] text-primary border border-primary/20 px-1.5 py-0.5">${c.tag || 'New'}</div>
-      </div>
-    `).join('');
-  }
-
-  window.saveToCloud = async function() {
-    const btn = document.getElementById('btn-save');
-    btn.disabled = true;
-    btn.innerText = "加密上傳中...";
+  // --- Cloud Sync ---
+  window.saveToCloud = async () => {
+    const btn = document.getElementById('btn-save'); 
+    btn.disabled = true; 
+    btn.innerText = "資料正在同步雲端...";
     
-    const payload = {
-      userId: userProfile.userId,
-      Name: document.getElementById('f-Name').value,
-      EnglishName: document.getElementById('f-EnglishName').value,
-      CompanyName: document.getElementById('f-CompanyName').value,
-      TaxID: document.getElementById('f-TaxID').value,
-      Department: document.getElementById('f-Department').value,
-      Title: document.getElementById('f-Title').value,
-      Mobile: document.getElementById('f-Mobile').value,
-      Tel: document.getElementById('f-Tel').value,
-      Ext: document.getElementById('f-Ext').value,
-      Fax: document.getElementById('f-Fax').value,
-      Email: document.getElementById('f-Email').value,
-      Address: document.getElementById('f-Address').value,
-      Website: document.getElementById('f-Website').value,
-      SocialMedia: document.getElementById('f-SocialMedia').value,
-      Slogan: document.getElementById('f-Slogan').value
+    const payload = { 
+      userId: userProfile.userId, 
+      Name: document.getElementById('f-Name').value, 
+      EnglishName: document.getElementById('f-EnglishName').value, 
+      Title: document.getElementById('f-Title').value, 
+      Department: document.getElementById('f-Department').value, 
+      CompanyName: document.getElementById('f-CompanyName').value, 
+      TaxID: document.getElementById('f-TaxID').value, 
+      Slogan: document.getElementById('f-Slogan').value, 
+      Mobile: document.getElementById('f-Mobile').value, 
+      Tel: document.getElementById('f-Tel').value, 
+      Ext: document.getElementById('f-Ext').value, 
+      Fax: document.getElementById('f-Fax').value, 
+      Address: document.getElementById('f-Address').value, 
+      Email: document.getElementById('f-Email').value, 
+      Website: document.getElementById('f-Website').value, 
+      SocialMedia: document.getElementById('f-SocialMedia').value, 
+      LineID: document.getElementById('f-LineID').value, 
+      Notes: document.getElementById('f-Notes').value, 
+      Config: document.getElementById('f-Config').value,
+      ImageUrl: croppedBase64 || '', // 暫存裁切後的圖
+      ...lastAiFateTags 
     };
 
     try {
-      const res = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'saveCard', payload })
+      const res = await fetch(WORKER_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ action: 'saveCard', payload }) 
       });
-      if ((await res.json()).success) {
-        window.resetUI();
-        await loadCards();
-      } else { alert("儲存失敗"); }
-    } catch (e) { alert("網路異常"); }
-    finally {
-      btn.disabled = false;
-      btn.innerText = "確認存入年度雲端庫";
+      const result = await res.json();
+      if (result.success) {
+        alert("🎉 名片已成功收割並存入雲端！");
+        window.resetUI(); 
+        await loadCards(); 
+      } else {
+        alert("儲存失敗：" + result.error);
+      }
+    } catch (e) { alert("網路異常，請確認連線環境"); }
+    finally { 
+      btn.disabled = false; 
+      btn.innerText = "確認存入年度雲端庫"; 
+    }
+  };
+
+  window.loadCards = async () => {
+    try {
+      const res = await fetch(WORKER_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ action: 'getCardContacts', payload: { userId: userProfile.userId } }) 
+      });
+      const data = await res.json(); 
+      globalCards = data.success ? data.data : [];
+      const container = document.getElementById('admin-card-list-container');
+      if (!globalCards.length) {
+        container.innerHTML = '<div class="text-center py-20 text-gray-200 text-[13px]">尚未有收割紀錄</div>';
+      } else {
+        container.innerHTML = globalCards.map(c => `
+          <div class="card-row">
+            <div class="w-10 h-10 bg-gray-50 flex items-center justify-center text-gray-200">
+              <span class="material-symbols-outlined text-[20px]">person</span>
+            </div>
+            <div class="flex-1">
+              <div class="text-[15px] text-gray-800 tracking-tight">${c.name}</div>
+              <div class="text-[11px] text-gray-400 mt-0.5">${c.company || '未知機構'}</div>
+            </div>
+            <div class="text-[10px] text-blue-500 border border-blue-100 px-1.5 py-0.5">${c.tag || 'New'}</div>
+          </div>
+        `).join('');
+      }
+    } catch(e) {}
+    finally { 
+      document.getElementById('view-loading').classList.add('hidden'); 
+      document.getElementById('view-list').classList.remove('hidden'); 
     }
   };
 
@@ -436,21 +414,21 @@
     document.getElementById('view-loading').classList.remove('hidden');
     loadCards();
   };
-  window.switchView = (view) => {
-    document.getElementById('view-list').classList.add('hidden');
-    document.getElementById('view-process').classList.add('hidden');
-    document.getElementById(`view-${view}`).classList.remove('hidden');
+  window.switchView = (view) => { 
+    ['view-list', 'view-process'].forEach(id => document.getElementById(id).classList.add('hidden')); 
+    document.getElementById(`view-${view}`).classList.remove('hidden'); 
   };
   window.resetUI = () => { 
-    window.switchView('list');
-    document.getElementById('card-camera').value = '';
+    window.switchView('list'); 
+    lastAiFateTags = null; 
+    croppedBase64 = null;
+    document.getElementById('card-input').value = '';
   };
-  window.copyInviteLink = () => {
-    const inviteUrl = `https://liff.line.me/${LIFF_ID}?invite=${localStorage.getItem('actsaas_shopId')}`;
-    const el = document.createElement('textarea');
-    el.value = inviteUrl; document.body.appendChild(el);
-    el.select(); document.execCommand('copy'); document.body.removeChild(el);
-    alert("邀請連結已複製");
+  window.copyInviteLink = () => { 
+    const inviteUrl = `https://liff.line.me/${LIFF_ID}?invite=${localStorage.getItem('actsaas_shopId')}`; 
+    const el = document.createElement('textarea'); el.value = inviteUrl; document.body.appendChild(el); 
+    el.select(); document.execCommand('copy'); document.body.removeChild(el); 
+    alert("邀請連結已複製"); 
   };
 
   window.onload = startApp;
