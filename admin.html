@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACTMASTER 管理後台</title>
+  <?!= include('css'); ?>
+</head>
+<body>
+  <nav class="admin-nav">
+    <h1>ACTMASTER 控制台</h1>
+    <span id="shopBadge">ShopID: 載入中</span>
+  </nav>
+
+  <main class="admin-container">
+    <section class="stat-card">
+      <h3>年度轉化數據</h3>
+      <div class="funnel">
+        <div class="funnel-item">Attention: <span id="statA">0</span></div>
+        <div class="funnel-item">Interest: <span id="statI">0</span></div>
+        <div class="funnel-item">Desire: <span id="statD">0</span></div>
+        <div class="funnel-item">Action: <span id="statAction">0</span></div>
+      </div>
+    </section>
+
+    <section class="monitor-card" id="monitorSection">
+      <h3>⚠️ 即時監聽警告</h3>
+      <ul id="monitorList">
+        <li>目前無異常。</li>
+      </ul>
+    </section>
+
+    <section class="group-card" id="groupSection" style="display:none;">
+      <h3>團隊成員管理</h3>
+      <table id="teamTable">
+        <thead>
+          <tr>
+            <th>成員</th>
+            <th>群組</th>
+            <th>今日成交</th>
+          </tr>
+        </thead>
+        <tbody id="teamBody">
+          </tbody>
+      </table>
+    </section>
+  </main>
+
+  <?!= include('js'); ?>
+  <script>
+    window.onload = function() {
+      google.script.run.withSuccessHandler(initAdmin).getAdminData();
+    };
+
+    function initAdmin(data) {
+      document.getElementById('shopBadge').innerText = `ShopID: ${data.shopId} (${data.version})`;
+      document.getElementById('statA').innerText = data.stats.a;
+      document.getElementById('statAction').innerText = data.stats.action;
+      
+      // 升級版解鎖
+      if (data.isGroupUnlocked) {
+        document.getElementById('groupSection').style.display = 'block';
+        renderTeam(data.team);
+      }
+    }
+  </script>
+</body>
+</html>
