@@ -6,7 +6,7 @@
   <title>ACTMASTER 合作夥伴註冊</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1" rel="stylesheet"/>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style type="text/tailwindcss">
     @layer base {
@@ -25,69 +25,93 @@
     <div class="w-16 h-16 bg-blue-600 text-white rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 shadow-xl">
       <span class="material-symbols-outlined text-[32px]">rocket_launch</span>
     </div>
-    <h1 class="text-[24px] font-bold text-slate-800">SaaS 空間初始化</h1>
+    <h1 class="text-[24px] font-bold text-slate-800 tracking-tight">SaaS 空間初始化</h1>
     <p class="text-[14px] text-slate-400 mt-2">填寫資訊以展開您的雲端資料夾</p>
   </header>
 
   <div id="reg-form" class="space-y-6">
-    <input type="text" id="t-name" class="custom-input" placeholder="商店/團隊名稱 (例如: 康力團隊)">
-    <input type="text" id="l-name" class="custom-input" placeholder="負責人姓名">
-    <button id="submit-btn" onclick="submitReg()" class="btn-primary">啟動雲端自動建置</button>
+    <div class="space-y-1.5">
+      <label class="text-[12px] font-bold text-slate-400 pl-1">商店或團隊名稱</label>
+      <input type="text" id="t-name" class="custom-input" placeholder="例如: 康力團隊">
+    </div>
+    <div class="space-y-1.5">
+      <label class="text-[12px] font-bold text-slate-400 pl-1">負責人姓名</label>
+      <input type="text" id="l-name" class="custom-input" placeholder="您的姓名">
+    </div>
+    <button id="submit-btn" onclick="submitReg()" class="btn-primary mt-4">啟動雲端自動建置</button>
   </div>
 
   <div id="reg-success" class="hidden text-center py-10 animate-in fade-in zoom-in">
     <span class="material-symbols-outlined text-green-500 text-6xl">check_circle</span>
     <h2 class="text-xl font-bold mt-4">初始化成功</h2>
     <p class="text-sm text-slate-500 mt-2">資料夾與試算表欄位已自動展開。</p>
-    <button onclick="liff.closeWindow()" class="mt-8 text-blue-600 font-bold">返回對話</button>
+    <button onclick="liff.closeWindow()" class="mt-8 text-blue-600 font-bold border border-blue-100 px-6 py-2 rounded-xl">返回對話</button>
   </div>
 
 </div>
 
 <script>
+  // 確保此 URL 與你的 Cloudflare Worker 100% 一致
   const WORKER_URL = "https://actmaster.fangwl591021.workers.dev"; 
   let userId = null;
 
   async function init() {
-    await liff.init({ liffId: "2008786875-DfKEEqkA" });
-    if (!liff.isLoggedIn()) { liff.login(); return; }
-    const profile = await liff.getProfile();
-    userId = profile.userId;
+    try {
+      await liff.init({ liffId: "2008786875-DfKEEqkA" });
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+      const profile = await liff.getProfile();
+      userId = profile.userId;
+      console.log("LIFF 載入成功，UID:", userId);
+    } catch (e) {
+      alert("LIFF 初始化異常，請確認 LINE OA 開啟環境");
+    }
   }
 
   async function submitReg() {
     const btn = document.getElementById('submit-btn');
-    const tName = document.getElementById('t-name').value;
-    const lName = document.getElementById('l-name').value;
+    const tName = document.getElementById('t-name').value.trim();
+    const lName = document.getElementById('l-name').value.trim();
 
     if (!tName || !lName) { alert("請填寫完整資訊"); return; }
+    if (!userId) { alert("無法取得用戶身份，請重新開啟頁面"); return; }
 
     btn.innerText = "正在展開雲端空間...";
     btn.disabled = true;
 
     try {
+      // 傳送 payload 至 Worker，注意變數名稱對齊後端
       const response = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'onboardTenant',
-          payload: { userId, tenantName: tName, leaderName: lName }
+          payload: { 
+            userId: userId, 
+            tenantName: tName, 
+            leaderName: lName 
+          }
         })
       });
+      
       const result = await response.json();
+      
       if (result.success) {
         document.getElementById('reg-form').classList.add('hidden');
         document.getElementById('reg-success').classList.remove('hidden');
       } else {
-        alert("註冊失敗: " + result.error);
+        alert("註冊失敗: " + (result.error || "未知錯誤"));
         btn.innerText = "啟動雲端自動建置";
         btn.disabled = false;
       }
     } catch (e) {
-      alert("連線失敗，請確認 Worker URL");
+      alert("連線失敗，請檢查 Worker URL 與 CORS 設定");
       btn.disabled = false;
     }
   }
+  
   window.onload = init;
 </script>
 </body>
