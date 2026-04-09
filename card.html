@@ -47,6 +47,10 @@
       <div id="user-profile-badge" class="hidden flex items-center gap-2">
         <img id="user-avatar" src="" class="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm">
       </div>
+      <!-- 系統主專屬切換按鈕 -->
+      <button id="role-switch-btn" onclick="window.location.href='admin.html'" class="hidden w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center active:bg-slate-200">
+        <span class="material-symbols-outlined text-[20px]">swap_horiz</span>
+      </button>
     </div>
   </nav>
 
@@ -157,6 +161,9 @@
   const LIFF_ID = "2008786875-DfKEEqkA"; 
   const WORKER_URL = "https://actsaas.fangwl591021.workers.dev"; 
   const CACHE_KEY = "actmaster_card_cache_v1";
+  
+  // 系統主的 UID
+  const SUPER_ADMINS = ["U94a7052d5af5e4f6b4efea79bfe26003"];
 
   let userProfile = null;
   let cropperInstance = null;
@@ -179,20 +186,29 @@
       if (!liff.isLoggedIn()) { liff.login(); return; }
       userProfile = await liff.getProfile();
       
-      isAdmin = ["Uf729764dbb5b652a5a90a467320bea29", "U58eb5c1a747450140ce1335af709ae55"].includes(userProfile.userId);
+      const role = localStorage.getItem('actsaas_role');
+      // 判斷是否為 SaaS 系統主
+      const isSuperAdmin = SUPER_ADMINS.includes(userProfile.userId);
+      // 判斷是否顯示管理員模式 (此處特指租戶內的 Leader)
+      isAdmin = (role === 'Leader');
       
       document.getElementById('user-avatar').src = userProfile.pictureUrl;
       document.getElementById('user-profile-badge').classList.remove('hidden');
       
+      // 開啟系統主切換按鈕
+      if (isSuperAdmin) {
+        document.getElementById('role-switch-btn').classList.remove('hidden');
+      }
+      
+      // 切換底部導覽列
       if (isAdmin) {
         document.getElementById('bottom-nav-admin').classList.remove('hidden');
       } else {
         document.getElementById('bottom-nav-user').classList.remove('hidden');
       }
 
-      // 如果是店長身分，顯示邀請按鈕
-      const role = localStorage.getItem('actsaas_role');
-      if (isAdmin || role === 'Leader') {
+      // 顯示店長邀請連結
+      if (isAdmin) {
         const inviteBtn = document.getElementById('invite-btn');
         if(inviteBtn) inviteBtn.classList.remove('hidden');
       }
@@ -206,10 +222,7 @@
   // 複製邀請碼給員工
   window.copyInviteLink = () => {
     const shopId = localStorage.getItem('actsaas_shopId');
-    const role = localStorage.getItem('actsaas_role');
-    
     if (!shopId) return alert("無法取得您的商店代碼，請重新載入系統");
-    if (role !== 'Leader' && !isAdmin) return alert("只有店長權限可以邀請員工喔！");
 
     const inviteUrl = `https://liff.line.me/${LIFF_ID}?invite=${shopId}`;
     
