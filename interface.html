@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACTMASTER SaaS Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f8f9fa;
+            color: #111111;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* 移除所有加粗與裝飾框，符合 LINE OA 原生感 */
+        * {
+            font-weight: 400 !important;
+            border-radius: 12px !important;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400;
+        }
+        .icon-filled {
+            font-variation-settings: 'FILL' 1;
+        }
+        .btn-primary {
+            background-color: #2563eb;
+            color: white;
+            padding: 14px;
+            text-align: center;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .card-item {
+            background: white;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border: 0.5px solid #f0f0f0;
+        }
+        .tag-blue {
+            background-color: #eff6ff;
+            color: #2563eb;
+            padding: 2px 8px;
+            font-size: 10px;
+        }
+        .custom-input {
+            width: 100%;
+            height: 48px;
+            padding: 0 16px;
+            background-color: #f8f9fa;
+            border: none;
+            outline: none;
+            font-size: 15px;
+        }
+    </style>
+</head>
+<body class="max-w-md mx-auto min-h-screen bg-white shadow-xl relative pb-24">
+
+    <!-- Top Nav -->
+    <nav class="sticky top-0 bg-white/90 backdrop-blur-md px-5 py-4 flex justify-between items-center border-b border-gray-100 z-50">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-blue-600 text-white flex items-center justify-center">
+                <span class="material-symbols-outlined text-[20px] icon-filled">contact_mail</span>
+            </div>
+            <div class="text-[18px] tracking-tight">名片管理 <span class="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded ml-1">v7.5.6</span></div>
+        </div>
+        <div class="flex items-center gap-3">
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Tony" class="w-8 h-8 rounded-full border border-gray-100">
+            <button onclick="toggleAdmin()" id="mode-btn" class="w-8 h-8 bg-gray-100 flex items-center justify-center">
+                <span class="material-symbols-outlined text-[20px]">swap_horiz</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- 1. 名片列表視圖 (v-list) -->
+    <div id="v-list" class="p-5">
+        <div class="bg-white p-6 text-center border border-gray-100 mb-6">
+            <div class="w-12 h-12 bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3">
+                <span class="material-symbols-outlined text-[24px]">document_scanner</span>
+            </div>
+            <div class="text-[16px] mb-1">AI 智慧名片辨識</div>
+            <div class="text-[12px] text-gray-400 mb-5">對準名片拍照或上傳圖檔，自動擷取聯絡資訊與命理分析。</div>
+            <div class="flex gap-3">
+                <button onclick="simulateOCR()" class="btn-primary flex-1">
+                    <span class="material-symbols-outlined text-[20px]">photo_camera</span> 辨識名片
+                </button>
+            </div>
+        </div>
+
+        <div class="relative mb-6">
+            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-[18px]">search</span>
+            <input type="text" placeholder="搜尋姓名或公司..." class="custom-input pl-11 bg-gray-50">
+        </div>
+
+        <div id="card-items">
+            <!-- 模擬資料 -->
+            <div class="card-item shadow-sm">
+                <div class="w-12 h-12 bg-gray-100 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-gray-300">person</span>
+                </div>
+                <div class="flex-1">
+                    <div class="text-[15px]">楊棋</div>
+                    <div class="text-[12px] text-gray-400">數據精密型</div>
+                </div>
+                <span class="tag-blue">Attention</span>
+            </div>
+            <div class="card-item shadow-sm">
+                <div class="w-12 h-12 bg-gray-100 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-gray-300">person</span>
+                </div>
+                <div class="flex-1">
+                    <div class="text-[15px]">王柏泓</div>
+                    <div class="text-[12px] text-gray-400">果斷行動型</div>
+                </div>
+                <span class="tag-blue">Interest</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. AI 辨識結果視圖 (v-process) -->
+    <div id="v-process" class="hidden p-5">
+        <div class="flex items-center gap-3 mb-6">
+            <button onclick="showList()" class="w-9 h-9 bg-gray-100 flex items-center justify-center">
+                <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+            </button>
+            <div class="text-[18px]">AI 辨識結果確認</div>
+        </div>
+
+        <div class="bg-gray-100 w-full h-40 mb-6 flex flex-col items-center justify-center text-gray-400">
+            <span class="material-symbols-outlined text-[48px] mb-2">image</span>
+            <div class="text-[12px]">名片影像預覽</div>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="text-[12px] text-gray-400 mb-1 block">姓名</label>
+                <input type="text" value="陳小明" class="custom-input">
+            </div>
+            <div>
+                <label class="text-[12px] text-gray-400 mb-1 block">公司名稱</label>
+                <input type="text" value="ACTMASTER 科技" class="custom-input">
+            </div>
+            <div>
+                <label class="text-[12px] text-gray-400 mb-1 block">AI 命理標籤 (Personality)</label>
+                <textarea class="w-full p-4 bg-gray-50 border-none outline-none text-[13px] h-24">👉 整合判斷：
+此人姓名學帶水，電話數理偏向穩健。
+適合以專業數據與長期效益進行溝通。</textarea>
+            </div>
+            <div>
+                <label class="text-[12px] text-gray-400 mb-1 block">品牌標語 (AI 擴寫)</label>
+                <textarea class="w-full p-4 bg-gray-50 border-none outline-none text-[13px] h-20">引領企業智慧轉型，ACTMASTER 為您打造最懂人心的 AI 業務分身。</textarea>
+            </div>
+            <button onclick="alert('已安全存入租戶資料夾'); showList();" class="btn-primary mt-4">確認存入雲端庫</button>
+        </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <nav id="bottom-nav" class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-gray-100 flex justify-around py-3 h-20 items-center">
+        <div class="flex flex-col items-center text-blue-600">
+            <span class="material-symbols-outlined icon-filled">contact_page</span>
+            <span class="text-[10px] mt-1">名片</span>
+        </div>
+        <div class="flex flex-col items-center text-gray-400">
+            <span class="material-symbols-outlined">psychology</span>
+            <span class="text-[10px] mt-1">配對</span>
+        </div>
+        <div class="flex flex-col items-center text-gray-400">
+            <span class="material-symbols-outlined">person</span>
+            <span class="text-[10px] mt-1">設定</span>
+        </div>
+    </nav>
+
+    <script>
+        let isAdmin = false;
+
+        function simulateOCR() {
+            document.getElementById('v-list').classList.add('hidden');
+            document.getElementById('v-process').classList.remove('hidden');
+        }
+
+        function showList() {
+            document.getElementById('v-process').classList.add('hidden');
+            document.getElementById('v-list').classList.remove('hidden');
+        }
+
+        function toggleAdmin() {
+            isAdmin = !isAdmin;
+            const nav = document.getElementById('bottom-nav');
+            if (isAdmin) {
+                nav.style.backgroundColor = '#111827'; // Dark mode for Admin
+                nav.style.color = '#9ca3af';
+                nav.innerHTML = `
+                    <div class="flex flex-col items-center text-gray-400">
+                        <span class="material-symbols-outlined">fact_check</span>
+                        <span class="text-[10px] mt-1">核銷</span>
+                    </div>
+                    <div class="flex flex-col items-center text-[#06C755]">
+                        <span class="material-symbols-outlined icon-filled">contact_page</span>
+                        <span class="text-[10px] mt-1">名片</span>
+                    </div>
+                    <div class="flex flex-col items-center text-gray-400">
+                        <span class="material-symbols-outlined">groups</span>
+                        <span class="text-[10px] mt-1">CRM</span>
+                    </div>
+                    <div class="flex flex-col items-center text-gray-400">
+                        <span class="material-symbols-outlined">settings</span>
+                        <span class="text-[10px] mt-1">參數</span>
+                    </div>
+                `;
+            } else {
+                nav.style.backgroundColor = '#ffffff';
+                nav.innerHTML = `
+                    <div class="flex flex-col items-center text-blue-600">
+                        <span class="material-symbols-outlined icon-filled">contact_page</span>
+                        <span class="text-[10px] mt-1">名片</span>
+                    </div>
+                    <div class="flex flex-col items-center text-gray-400">
+                        <span class="material-symbols-outlined">psychology</span>
+                        <span class="text-[10px] mt-1">配對</span>
+                    </div>
+                    <div class="flex flex-col items-center text-gray-400">
+                        <span class="material-symbols-outlined">person</span>
+                        <span class="text-[10px] mt-1">設定</span>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
