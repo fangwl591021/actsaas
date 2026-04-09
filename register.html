@@ -3,137 +3,91 @@
 <head>
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
-  <title>ACTMASTER SaaS 合作夥伴申請</title>
+  <title>ACTMASTER 合作夥伴註冊</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style type="text/tailwindcss">
     @layer base {
       body { @apply font-['Noto_Sans_TC'] bg-slate-50 text-slate-900 antialiased; -webkit-tap-highlight-color: transparent; }
       * { @apply transition-all duration-200 border-none outline-none font-normal !important; }
     }
-    .custom-input { @apply w-full h-[54px] px-4 bg-white rounded-2xl text-[15px] border border-slate-100 focus:ring-4 focus:ring-blue-500/10 placeholder-slate-300 shadow-sm; }
-    .btn-primary { @apply w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-[16px] shadow-lg shadow-blue-500/20 active:scale-[0.98] flex items-center justify-center gap-2; }
-    .input-label { @apply block text-[12px] font-bold text-slate-400 mb-2 uppercase tracking-[0.1em] pl-1; }
+    .custom-input { @apply w-full h-[54px] px-4 bg-white border border-slate-100 rounded-2xl text-[15px] focus:ring-4 focus:ring-blue-500/10 shadow-sm; }
+    .btn-primary { @apply w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-[16px] shadow-lg active:scale-[0.98] flex items-center justify-center gap-2; }
   </style>
 </head>
 <body class="flex flex-col items-center min-h-screen">
 
-<div class="w-full max-w-md bg-white min-h-screen relative flex flex-col shadow-2xl overflow-hidden">
+<div class="w-full max-w-md bg-white min-h-screen relative flex flex-col shadow-2xl overflow-hidden p-8">
   
-  <header class="p-8 text-center mt-10">
+  <header class="text-center mt-10 mb-10">
     <div class="w-16 h-16 bg-blue-600 text-white rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 shadow-xl">
-      <span class="material-symbols-outlined text-[32px] fill-current">rocket_launch</span>
+      <span class="material-symbols-outlined text-[32px]">rocket_launch</span>
     </div>
-    <h1 class="text-[24px] font-extrabold text-slate-800 tracking-tight">合作夥伴申請</h1>
-    <p class="text-[14px] text-slate-400 mt-2">啟動您的 AI 智慧商務管理系統</p>
+    <h1 class="text-[24px] font-bold text-slate-800">SaaS 空間初始化</h1>
+    <p class="text-[14px] text-slate-400 mt-2">填寫資訊以展開您的雲端資料夾</p>
   </header>
 
-  <main class="p-8 space-y-6">
-    <div id="reg-form" class="space-y-6">
-      <div class="space-y-1.5">
-        <label class="input-label">商店或團隊名稱</label>
-        <input type="text" id="t-name" class="custom-input" placeholder="例如：康力 AI 團隊">
-      </div>
-      
-      <div class="space-y-1.5">
-        <label class="input-label">負責人姓名</label>
-        <input type="text" id="l-name" class="custom-input" placeholder="請輸入您的真實姓名">
-      </div>
+  <div id="reg-form" class="space-y-6">
+    <input type="text" id="t-name" class="custom-input" placeholder="商店/團隊名稱 (例如: 康力團隊)">
+    <input type="text" id="l-name" class="custom-input" placeholder="負責人姓名">
+    <button id="submit-btn" onclick="submitReg()" class="btn-primary">啟動雲端自動建置</button>
+  </div>
 
-      <div class="space-y-1.5">
-        <label class="input-label">聯絡電話</label>
-        <input type="tel" id="l-phone" class="custom-input" placeholder="用於緊急聯繫與驗證">
-      </div>
+  <div id="reg-success" class="hidden text-center py-10 animate-in fade-in zoom-in">
+    <span class="material-symbols-outlined text-green-500 text-6xl">check_circle</span>
+    <h2 class="text-xl font-bold mt-4">初始化成功</h2>
+    <p class="text-sm text-slate-500 mt-2">資料夾與試算表欄位已自動展開。</p>
+    <button onclick="liff.closeWindow()" class="mt-8 text-blue-600 font-bold">返回對話</button>
+  </div>
 
-      <div class="pt-4">
-        <button id="submit-btn" onclick="submitRegistration()" class="btn-primary">
-          <span class="material-symbols-outlined">how_to_reg</span> 提交申請並建立空間
-        </button>
-      </div>
-    </div>
-
-    <!-- 成功畫面 -->
-    <div id="reg-success" class="hidden text-center py-10 animate-in fade-in zoom-in duration-500">
-      <div class="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-        <span class="material-symbols-outlined text-[40px] font-bold">check_circle</span>
-      </div>
-      <h2 class="text-[22px] font-bold text-slate-800">註冊成功！</h2>
-      <p class="text-[14px] text-slate-500 mt-3 leading-relaxed px-6">
-        系統已為您建立專屬資料夾與年度表。<br>現在，請重新開啟 LINE OA 即可進入管理模式。
-      </p>
-      <button onclick="liff.closeWindow()" class="mt-8 text-blue-600 font-bold">關閉並返回對話</button>
-    </div>
-  </main>
-
-  <footer class="mt-auto p-8 text-center text-[10px] text-slate-300 tracking-widest">
-    ACTMASTER SAAS ENGINE v7.5.6
-  </footer>
 </div>
 
 <script>
-  let currentUid = null;
+  const WORKER_URL = "https://actmaster.fangwl591021.workers.dev"; 
+  let userId = null;
 
   async function init() {
-    try {
-      await liff.init({ liffId: "2008786875-DfKEEqkA" });
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
-      }
-      const profile = await liff.getProfile();
-      currentUid = profile.userId;
-    } catch (e) {
-      console.error("LIFF Init Error", e);
-    }
+    await liff.init({ liffId: "2008786875-DfKEEqkA" });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    const profile = await liff.getProfile();
+    userId = profile.userId;
   }
 
-  async function submitRegistration() {
+  async function submitReg() {
     const btn = document.getElementById('submit-btn');
-    const tenantName = document.getElementById('t-name').value;
-    const leaderName = document.getElementById('l-name').value;
-    const phone = document.getElementById('l-phone').value;
+    const tName = document.getElementById('t-name').value;
+    const lName = document.getElementById('l-name').value;
 
-    if (!tenantName || !leaderName) {
-      alert("請完整填寫團隊名稱與負責人姓名");
-      return;
-    }
+    if (!tName || !lName) { alert("請填寫完整資訊"); return; }
 
-    btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> 正在建置雲端空間...';
+    btn.innerText = "正在展開雲端空間...";
     btn.disabled = true;
 
     try {
-      // 透過 Worker 傳送到 GAS
-      const response = await fetch("https://actmaster.fangwl591021.workers.dev", {
+      const response = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'onboardTenant',
-          payload: {
-            userId: currentUid,
-            tenantName: tenantName,
-            leaderName: leaderName,
-            phone: phone
-          }
+          payload: { userId, tenantName: tName, leaderName: lName }
         })
       });
       const result = await response.json();
-      
       if (result.success) {
         document.getElementById('reg-form').classList.add('hidden');
         document.getElementById('reg-success').classList.remove('hidden');
       } else {
-        alert("註冊失敗：" + result.error);
-        btn.innerHTML = '<span class="material-symbols-outlined">how_to_reg</span> 重新提交';
+        alert("註冊失敗: " + result.error);
+        btn.innerText = "啟動雲端自動建置";
         btn.disabled = false;
       }
-    } catch (err) {
-      alert("系統連線異常，請稍後再試");
+    } catch (e) {
+      alert("連線失敗，請確認 Worker URL");
       btn.disabled = false;
     }
   }
-
   window.onload = init;
 </script>
 </body>
