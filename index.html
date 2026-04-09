@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACTMASTER 智慧名片</title>
+  <?!= include('css'); ?>
+</head>
+<body>
+  <div id="app">
+    <section class="card-header">
+      <div class="avatar" id="userAvatar"></div>
+      <h2 id="userName">載入中...</h2>
+      <p id="userTitle">專業顧問</p>
+    </section>
+
+    <section class="personality-section">
+      <div class="tag-container" id="personalityTag">
+        <span>分析中...</span>
+      </div>
+      <p class="strategy-hint" id="strategyHint">正在讀取您的專屬溝通建議...</p>
+    </section>
+
+    <section class="action-grid">
+      <button onclick="handleAction('INTEREST')">了解產品</button>
+      <button onclick="handleAction('DESIRE')">預約諮詢</button>
+      <button onclick="handleAction('ACTION')">立即成交</button>
+    </section>
+
+    <footer>
+      <p>Powered by ACTMASTER SaaS</p>
+    </footer>
+  </div>
+
+  <?!= include('js'); ?>
+  <script>
+    window.onload = function() {
+      // 初始化 LIFF 或 呼叫 GAS 取得資料
+      google.script.run.withSuccessHandler(renderCard).getCardData();
+    };
+
+    function renderCard(data) {
+      document.getElementById('userName').innerText = data.name;
+      document.getElementById('personalityTag').innerHTML = `<span>${data.tag}</span>`;
+      document.getElementById('strategyHint').innerText = data.strategy;
+    }
+
+    function handleAction(type) {
+      google.script.run.logAidaAction(type);
+      alert('已收到您的請求，AI 助理將立即與您聯繫。');
+    }
+  </script>
+</body>
+</html>
