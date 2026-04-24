@@ -2341,13 +2341,9 @@
 
       if (cropperInstance) cropperInstance.destroy();
 
-      // 智慧判斷裁切比例：Banner 是 3:1，名片封面是 20:13，其餘自由裁切
-      let aspectRatio = NaN;
-      if (targetInputId === 'input-store-banner') aspectRatio = 3 / 1;
-      else if (targetInputId.includes('v1-img-url')) aspectRatio = 20 / 13;
-
+      // 全面解除比例限制，改為自由伸縮裁切
       cropperInstance = new Cropper(cropperImage, {
-        aspectRatio: aspectRatio,
+        aspectRatio: NaN,
         viewMode: 1,
         dragMode: 'move',
         autoCropArea: 0.9,
