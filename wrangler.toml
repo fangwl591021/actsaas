@@ -1,0 +1,8 @@
+name = "folkstown-actmaster"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# 關鍵設定：告訴 Cloudflare 將 .html 檔案當作純文字模組載入
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
