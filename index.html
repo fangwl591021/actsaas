@@ -2684,19 +2684,6 @@
   };
 
   async function init() {
-    // 1. 動態建立 Loading 與自我檢測遮罩
-    const loadingOverlay = document.createElement('div');
-    loadingOverlay.id = 'sys-loading';
-    loadingOverlay.className = 'fixed inset-0 bg-white/80 backdrop-blur-sm z-[10000] flex flex-col items-center justify-center transition-opacity duration-300';
-    loadingOverlay.innerHTML = '<div class="w-12 h-12 border-4 border-slate-200 border-t-[#06C755] rounded-full animate-spin mb-4"></div><div id="sys-loading-text" class="font-bold text-slate-700 text-center leading-relaxed">系統連線與自我檢測中...<br><span class="text-[13px] text-slate-500 font-normal mt-1 block">驗證使用者權限</span></div>';
-    document.body.appendChild(loadingOverlay);
-
-    // 2. 逾時防呆偵測 (超過 5 秒未回應即提示冷啟動)
-    const slowWarning = setTimeout(() => {
-        const textEl = document.getElementById('sys-loading-text');
-        if (textEl) textEl.innerHTML = '伺服器冷啟動中，請耐心等候...<br><span class="text-[13px] text-orange-500 font-normal mt-1 block">資料庫正在喚醒，可能需要 10~30 秒</span>';
-    }, 5000);
-
     try {
       await liff.init({ liffId: LIFF_ID });
 
@@ -2706,6 +2693,7 @@
 
       if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
       
+      // 1. 拔除全螢幕 Loading，立即顯示首頁與底部導航，給予使用者「秒開」的體驗
       window.goPage('home', true); 
 
       const profile = await liff.getProfile();
@@ -2713,118 +2701,114 @@
       document.getElementById('avatar').src = profile.pictureUrl || '';
       document.getElementById('avatar').classList.remove('hidden');
       
-      const checkRes = await window.fetchAPI('checkUser', { userId: profile.userId }, true);
-      
-      // 權限檢測完畢，清除自我檢測提示
-      clearTimeout(slowWarning);
-      loadingOverlay.style.opacity = '0';
-      setTimeout(() => loadingOverlay.remove(), 300);
+      // 2. 立即背景發送讀取公開活動的請求 (不需等待權限驗證即可看見)
+      window.loadUserActivities();
 
-      if (checkRes && checkRes.isRegistered) {
-        currentUser = checkRes.info;
-        userRole = currentUser.role || 'user';
-        
-        if (userRole === 'store' || userRole === 'admin') {
-            currentNetworkId = profile.userId; 
-        } else {
-            currentNetworkId = currentUser.networkId || 'admin'; 
-        }
+      // 3. 背景執行驗證與進階資料載入 (GAS 冷啟動在背景跑，不阻塞畫面)
+      window.fetchAPI('checkUser', { userId: profile.userId }, true).then(checkRes => {
+          if (checkRes && checkRes.isRegistered) {
+              currentUser = checkRes.info;
+              userRole = currentUser.role || 'user';
+              
+              if (userRole === 'store' || userRole === 'admin') {
+                  currentNetworkId = profile.userId; 
+              } else {
+                  currentNetworkId = currentUser.networkId || 'admin'; 
+              }
 
-        hasAdminRights = (userRole === 'admin' || userRole === 'store');
-        currentViewMode = 'user'; 
+              hasAdminRights = (userRole === 'admin' || userRole === 'store');
+              currentViewMode = 'user'; 
 
-        const elUserName = document.getElementById('user-name');
-        if(elUserName) elUserName.textContent = '歡迎回來，' + currentUser.name;
-        const elUserStatus = document.getElementById('user-status');
-        if(elUserStatus) elUserStatus.textContent = currentUser.industry || '一般會員';
-        document.getElementById('profile-name').value = currentUser.name || '';
-        document.getElementById('profile-phone').value = String(currentUser.phone || '').replaceAll(String.fromCharCode(8203), '').replaceAll("'", "");
-        document.getElementById('profile-industry').value = currentUser.industry || '';
-        document.getElementById('profile-birthday').value = currentUser.birthday || '';
-        
-        window.loadAllData().then(() => {
-            let isMyCardPrivate = false;
-            currentUserCard = allCards.find(c => String(c['LINE ID']).trim() === profile.userId || String(c.userId).trim() === profile.userId);
-            
-            if (!currentUserCard && currentUser && currentUser.phone && currentUser.name) {
-                const myPhoneClean = String(currentUser.phone).replace(/[^0-9]/g, '');
-                const myName = String(currentUser.name).trim();
-                
-                if (myPhoneClean && myName) {
-                    const matchedCard = allCards.find(c => {
-                        const cardName = String(c['姓名'] || '').trim();
-                        const cardPhone1 = String(c['手機號碼'] || '').replace(/[^0-9]/g, '');
-                        const cardPhone2 = String(c['公司電話'] || '').replace(/[^0-9]/g, '');
-                        const cardUid = String(c['LINE ID'] || '').trim();
-                        const isUnbound = cardUid === '' || cardUid === 'undefined';
-                        
-                        return isUnbound && cardName === myName && (cardPhone1 === myPhoneClean || cardPhone2 === myPhoneClean);
-                    });
-                    
-                    if (matchedCard) {
-                        currentUserCard = matchedCard;
-                        matchedCard['LINE ID'] = profile.userId; 
-                        
-                        window.fetchAPI('updateCard', {
-                            rowId: matchedCard.rowId,
-                            data: { 'LINE ID': profile.userId }
-                        }, true);
-                    }
-                }
-            }
+              const elUserName = document.getElementById('user-name');
+              if(elUserName) elUserName.textContent = '歡迎回來，' + currentUser.name;
+              const elUserStatus = document.getElementById('user-status');
+              if(elUserStatus) elUserStatus.textContent = currentUser.industry || '一般會員';
+              document.getElementById('profile-name').value = currentUser.name || '';
+              document.getElementById('profile-phone').value = String(currentUser.phone || '').replaceAll(String.fromCharCode(8203), '').replaceAll("'", "");
+              document.getElementById('profile-industry').value = currentUser.industry || '';
+              document.getElementById('profile-birthday').value = currentUser.birthday || '';
+              
+              window.loadAllData().then(() => {
+                  let isMyCardPrivate = false;
+                  currentUserCard = allCards.find(c => String(c['LINE ID']).trim() === profile.userId || String(c.userId).trim() === profile.userId);
+                  
+                  if (!currentUserCard && currentUser && currentUser.phone && currentUser.name) {
+                      const myPhoneClean = String(currentUser.phone).replace(/[^0-9]/g, '');
+                      const myName = String(currentUser.name).trim();
+                      
+                      if (myPhoneClean && myName) {
+                          const matchedCard = allCards.find(c => {
+                              const cardName = String(c['姓名'] || '').trim();
+                              const cardPhone1 = String(c['手機號碼'] || '').replace(/[^0-9]/g, '');
+                              const cardPhone2 = String(c['公司電話'] || '').replace(/[^0-9]/g, '');
+                              const cardUid = String(c['LINE ID'] || '').trim();
+                              const isUnbound = cardUid === '' || cardUid === 'undefined';
+                              
+                              return isUnbound && cardName === myName && (cardPhone1 === myPhoneClean || cardPhone2 === myPhoneClean);
+                          });
+                          
+                          if (matchedCard) {
+                              currentUserCard = matchedCard;
+                              matchedCard['LINE ID'] = profile.userId; 
+                              
+                              window.fetchAPI('updateCard', {
+                                  rowId: matchedCard.rowId,
+                                  data: { 'LINE ID': profile.userId }
+                              }, true);
+                          }
+                      }
+                  }
 
-            if (currentUserCard && currentUserCard['自訂名片設定']) {
-                try { isMyCardPrivate = JSON.parse(currentUserCard['自訂名片設定']).isPrivate === true; } catch(e) {}
-            }
-            
-            window.initMyECard();
+                  if (currentUserCard && currentUserCard['自訂名片設定']) {
+                      try { isMyCardPrivate = JSON.parse(currentUserCard['自訂名片設定']).isPrivate === true; } catch(e) {}
+                  }
+                  
+                  window.initMyECard();
 
-            const matchmakerUi = document.getElementById('matchmaker-ui');
-            const privacyLock = document.getElementById('privacy-lock-container');
-            const privacyToggle = document.getElementById('fate-privacy-toggle');
-            if (privacyToggle) privacyToggle.checked = !isMyCardPrivate;
-            if (isMyCardPrivate && !hasAdminRights) {
-                if (matchmakerUi) matchmakerUi.classList.add('hidden');
-                if (privacyLock) privacyLock.classList.remove('hidden');
-            } else {
-                if (matchmakerUi) matchmakerUi.classList.remove('hidden');
-                if (privacyLock) privacyLock.classList.add('hidden');
-            }
-            window.checkDatabaseStatus();
-        });
+                  const matchmakerUi = document.getElementById('matchmaker-ui');
+                  const privacyLock = document.getElementById('privacy-lock-container');
+                  const privacyToggle = document.getElementById('fate-privacy-toggle');
+                  if (privacyToggle) privacyToggle.checked = !isMyCardPrivate;
+                  if (isMyCardPrivate && !hasAdminRights) {
+                      if (matchmakerUi) matchmakerUi.classList.add('hidden');
+                      if (privacyLock) privacyLock.classList.remove('hidden');
+                  } else {
+                      if (matchmakerUi) matchmakerUi.classList.remove('hidden');
+                      if (privacyLock) privacyLock.classList.add('hidden');
+                  }
+                  window.checkDatabaseStatus();
+              });
 
-        window.loadUserActivities();
+              // 權限到位後，無縫解開後台元件的隱藏
+              if (hasAdminRights) {
+                  const adminSwitch = document.getElementById('admin-switch-container');
+                  if (adminSwitch) adminSwitch.classList.remove('hidden');
+                  const topNavSwitch = document.getElementById('top-nav-switch');
+                  if (topNavSwitch) topNavSwitch.classList.remove('hidden');
+                  
+                  const bannerMgmtBlock = document.getElementById('details-store-banner');
+                  if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
+              }
+              
+              if (currentUser?.role === 'admin') {
+                  const storeMgmtBlock = document.getElementById('details-store-management');
+                  if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
+              }
+              
+          } else {
+              // 背景確認為新用戶，才切換到註冊畫面
+              window.goPage('register');
+          }
+      }).catch(err => {
+          console.error("Auth check failed", err);
+      });
 
-        // 在取得權限後，主動解除 DOM 隱藏，解決需點擊 2 次才展開的問題
-        if (hasAdminRights) {
-            const adminSwitch = document.getElementById('admin-switch-container');
-            if (adminSwitch) adminSwitch.classList.remove('hidden');
-            const topNavSwitch = document.getElementById('top-nav-switch');
-            if (topNavSwitch) topNavSwitch.classList.remove('hidden');
-            
-            const bannerMgmtBlock = document.getElementById('details-store-banner');
-            if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
-        }
-        
-        if (currentUser?.role === 'admin') {
-            const storeMgmtBlock = document.getElementById('details-store-management');
-            if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
-        }
-        
-      } else {
-        window.goPage('register');
-      }
     } catch (err) {
-      // 發生錯誤時也要確保遮罩移除，並給出錯誤自我檢測報告
-      if (typeof slowWarning !== 'undefined') clearTimeout(slowWarning);
-      const sysLoading = document.getElementById('sys-loading');
-      if (sysLoading) sysLoading.remove();
-
       console.error("Init failed", err);
       if (err.message && err.message.includes("channel not found")) {
           window.showToast("⚠️ LIFF 初始化失敗：找不到 Channel。請確認 LIFF ID 是否正確，且網域已綁定 Endpoint URL。", true);
       } else {
-          window.showToast('⚠️ 系統自我檢測失敗：' + err.message, true);
+          window.showToast('⚠️ 系統初始化失敗：' + err.message, true);
       }
     }
   }
