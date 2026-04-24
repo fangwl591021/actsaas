@@ -4,7 +4,34 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>LINE 商業智能</title>
+  
+  <!-- 引入 Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+  <!-- Alpine.js 狀態初始化 (必須在載入 Alpine 前定義) -->
+  <script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.store('ui', {
+            page: 'home',
+            viewMode: 'user', 
+            role: 'user', 
+            cardTab: 'info',
+            activeTab: 'quick',
+            qrModalOpen: false,
+            roModalOpen: false,
+            cropperOpen: false,
+            activeCropperOpen: false,
+            hasMyCard: false,
+            isMyCardPrivate: false,
+            get hasAdminRights() { return this.role === 'admin' || this.role === 'store'; },
+            get isAdmin() { return this.role === 'admin'; }
+        });
+    });
+  </script>
+
+  <!-- 引入 Alpine.js (前端輕量化核心) - 加入 defer 確保在 DOM 解析後才執行 -->
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+  
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
@@ -29,6 +56,7 @@
     }
   </script>
   <style type="text/tailwindcss">
+    [x-cloak] { display: none !important; } /* Alpine.js 避免閃爍防護 */
     .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
     .icon-filled { font-variation-settings: 'FILL' 1; }
     body { background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
@@ -46,7 +74,6 @@
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
     details > summary::-webkit-details-marker { display: none; }
-
     @keyframes slideDown { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
     .toast-enter { animation: slideDown 0.3s ease-out forwards; }
   </style>
@@ -56,18 +83,19 @@
 <!-- Toast 容器 -->
 <div id="toast-container" class="fixed top-16 left-0 right-0 z-[10000] flex flex-col items-center gap-2 pointer-events-none"></div>
 
-<div id="app" class="w-full max-w-md bg-background h-screen relative flex flex-col shadow-2xl overflow-hidden">
+<!-- 全域綁定 Alpine.js State -->
+<div id="app" x-data class="w-full max-w-md bg-background h-screen relative flex flex-col shadow-2xl overflow-hidden">
 
   <!-- 頂部導航列 -->
   <nav class="fixed top-0 w-full max-w-md z-40 bg-white/90 backdrop-blur-xl px-5 py-4 flex justify-between items-center left-1/2 -translate-x-1/2 border-b border-slate-100">
     <div class="flex items-center gap-1.5">
         <span class="text-[20px] font-black text-slate-800 tracking-tight">LINE商機引擎</span>
-        <span id="header-admin-badge" class="hidden bg-[#1e293b] text-white text-[10px] px-2 py-0.5 rounded-full tracking-wider font-bold">ADMIN</span>
+        <span x-cloak x-show="$store.ui.viewMode === 'admin'" class="bg-[#1e293b] text-white text-[10px] px-2 py-0.5 rounded-full tracking-wider font-bold">ADMIN</span>
     </div>
     
     <div class="flex items-center gap-3">
         <img id="avatar" src="" class="w-8 h-8 rounded-full border border-slate-200 hidden object-cover shadow-sm">
-        <button id="top-nav-switch" onclick="window.toggleAdminMode()" class="hidden w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 active:scale-90 transition-transform shadow-sm">
+        <button x-cloak x-show="$store.ui.hasAdminRights" @click="window.toggleAdminMode()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 active:scale-90 transition-transform shadow-sm">
             <span class="material-symbols-outlined text-[18px]">swap_horiz</span>
         </button>
     </div>
@@ -76,7 +104,7 @@
   <main id="main" class="flex-1 overflow-y-auto pb-32 pt-20 px-4 space-y-6">
 
     <!-- ==================== 註冊頁面 ==================== -->
-    <div id="page-register" class="hidden h-full flex-col items-center justify-center animate-in fade-in pb-10">
+    <div id="page-register" x-cloak x-show="$store.ui.page === 'register'" class="h-full flex-col items-center justify-center animate-in fade-in pb-10" style="display:flex;">
       <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 w-full space-y-5">
         <div class="w-16 h-16 bg-primary-light text-primary rounded-full flex items-center justify-center mx-auto mb-2">
             <span class="material-symbols-outlined text-3xl icon-filled">person_add</span>
@@ -96,7 +124,7 @@
     </div>
 
     <!-- ==================== 系統參數頁面 (設定與參數) ==================== -->
-    <div id="page-admin-settings" class="hidden animate-in fade-in pb-10 mx-1 pt-2">
+    <div id="page-admin-settings" x-cloak x-show="$store.ui.page === 'admin-settings'" class="animate-in fade-in pb-10 mx-1 pt-2">
       <div class="flex items-center gap-3 mb-6 px-1">
         <h2 class="text-2xl font-black text-slate-800 tracking-tight">設定與參數</h2>
       </div>
@@ -169,7 +197,7 @@
         <div class="p-5 pt-0 border-t border-slate-50 space-y-4">
           
           <!-- Empty State -->
-          <div id="my-ecard-empty-state" class="hidden space-y-4">
+          <div x-cloak x-show="!$store.ui.hasMyCard" class="space-y-4">
             <p class="text-[13px] text-slate-500 font-medium mt-2 leading-relaxed">您尚未建立專屬名片。<br>請直接拍照掃描實體名片，讓 AI 自動建檔綁定；或一鍵使用 LINE 資料產生。</p>
             <div class="flex gap-3">
                 <button onclick="document.getElementById('myCameraInput').click()" class="flex-1 bg-blue-50 text-blue-600 py-4 rounded-2xl font-bold flex flex-col justify-center items-center gap-2 cursor-pointer active:scale-95 transition-transform border border-blue-100 shadow-sm">
@@ -195,7 +223,7 @@
           </div>
 
           <!-- Edit State -->
-          <div id="my-ecard-edit-state" class="hidden space-y-4">
+          <div x-cloak x-show="$store.ui.hasMyCard" class="space-y-4">
               <div class="flex justify-between items-center mb-2 mt-2">
                   <p class="text-xs text-slate-500 font-bold">設定後即可在首頁一鍵發送數位名片</p>
                   <button onclick="window.showMyQRCode()" class="text-white text-[12px] font-bold px-2 py-1.5 bg-[#06C755] rounded-lg shadow-sm active:scale-95 transition-transform flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">qr_code_scanner</span> 顯示條碼</button>
@@ -230,7 +258,7 @@
       </details>
 
       <!-- Box 5: 首頁 Banner 管理 (Admin/Store Only) -->
-      <details id="details-store-banner" class="hidden bg-white rounded-3xl shadow-sm border border-slate-100 mb-6 group">
+      <details x-cloak x-show="$store.ui.hasAdminRights" class="bg-white rounded-3xl shadow-sm border border-slate-100 mb-6 group">
         <summary class="font-bold text-slate-800 p-5 flex items-center justify-between cursor-pointer list-none outline-none">
           <div class="flex items-center gap-2"><span class="material-symbols-outlined text-pink-500 icon-filled">view_carousel</span> 首頁 Banner 管理 <span class="bg-pink-100 text-pink-600 text-[9px] px-1.5 py-0.5 rounded-full tracking-wider font-bold ml-1">PRO</span></div>
           <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
@@ -260,8 +288,8 @@
         </div>
       </details>
 
-      <!-- Box 6: 商家權限管理 (Admin Only) 加入 ontoggle 自動防呆載入 -->
-      <details id="details-store-management" class="hidden bg-white rounded-3xl shadow-sm border border-slate-100 mb-6 group" ontoggle="if(this.open && allSystemUsers.length === 0) window.loadAllUsers()">
+      <!-- Box 6: 商家權限管理 (Admin Only) -->
+      <details x-cloak x-show="$store.ui.isAdmin" class="bg-white rounded-3xl shadow-sm border border-slate-100 mb-6 group" @toggle="if($event.target.open && allSystemUsers.length === 0) window.loadAllUsers()">
         <summary class="font-bold text-slate-800 p-5 flex items-center justify-between cursor-pointer list-none outline-none">
           <div class="flex items-center gap-2"><span class="material-symbols-outlined text-purple-500 icon-filled">storefront</span> 商家權限管理 <span class="bg-[#1e293b] text-white text-[9px] px-1.5 py-0.5 rounded-full tracking-wider font-bold ml-1">ADMIN</span></div>
           <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
@@ -271,37 +299,32 @@
               <p class="text-xs text-slate-500 font-bold">管理系統用戶層級與 StoreID</p>
               <button onclick="window.loadAllUsers()" class="text-blue-500 hover:bg-blue-50 px-2 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">refresh</span> 重新整理</button>
           </div>
-          <div id="store-management-list" class="space-y-3 max-h-[350px] overflow-y-auto pr-1">
-              <!-- 這裡會動態載入用戶列表 -->
-          </div>
+          <div id="store-management-list" class="space-y-3 max-h-[350px] overflow-y-auto pr-1"></div>
         </div>
       </details>
 
-      <div id="admin-switch-container" class="hidden pt-2 border-t border-slate-200 mt-6">
+      <div x-cloak x-show="$store.ui.hasAdminRights" class="pt-2 border-t border-slate-200 mt-6">
         <p class="text-xs text-slate-500 mb-3 font-bold px-1">系統權限管理</p>
-        <button onclick="window.toggleAdminMode()" class="w-full bg-slate-100 text-slate-700 py-4 rounded-2xl font-bold active:scale-95 transition-transform flex justify-center items-center gap-2 border border-slate-200">
-            <span class="material-symbols-outlined text-[20px]">swap_horiz</span> <span id="admin-switch-text">切換至後台 (管理模式)</span>
+        <button @click="window.toggleAdminMode()" class="w-full bg-slate-100 text-slate-700 py-4 rounded-2xl font-bold active:scale-95 transition-transform flex justify-center items-center gap-2 border border-slate-200">
+            <span class="material-symbols-outlined text-[20px]">swap_horiz</span> <span id="admin-switch-text" x-text="$store.ui.viewMode === 'admin' ? '切換至前台 (一般用戶)' : '切換至後台 (管理模式)'"></span>
         </button>
       </div>
     </div>
 
     <!-- ==================== 首頁 ==================== -->
-    <div id="page-home" class="hidden space-y-6 animate-in fade-in pb-10">
-      
-      <!-- 首頁 Banner 區塊 (支援 GIF 與靜態圖片) -->
+    <div id="page-home" x-cloak x-show="$store.ui.page === 'home'" class="space-y-6 animate-in fade-in pb-10">
       <div class="mx-1 mt-2 flex flex-col gap-3">
         <div class="w-full aspect-[21/9] sm:aspect-[3/1] rounded-none overflow-hidden shadow-sm border border-slate-100 bg-slate-900 relative">
             <img id="home-main-banner" src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80" alt="Main Banner" class="w-full h-full object-cover">
         </div>
-        
-        <!-- YouTube 影片區塊 (動態顯示，極輕量設計) -->
+        <!-- YouTube 影片區塊 -->
         <div id="home-youtube-container" class="hidden w-full aspect-video rounded-none overflow-hidden shadow-sm border border-slate-100 bg-slate-100">
             <iframe id="home-youtube-iframe" class="w-full h-full" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
         </div>
       </div>
       
       <div class="grid grid-cols-2 gap-4 mx-1">
-          <button onclick="window.goPage('card')" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:scale-95 transition-transform">
+          <button @click="window.goPage('card')" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:scale-95 transition-transform">
               <span class="material-symbols-outlined text-4xl text-blue-500">contact_mail</span>
               <span class="font-bold text-slate-700">我的名片庫</span>
           </button>
@@ -309,7 +332,7 @@
               <span class="material-symbols-outlined text-4xl text-[#06C755]">send_to_mobile</span>
               <span class="font-bold text-slate-700">發送我的名片</span>
           </button>
-          <button onclick="window.goPage('matchmake')" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:scale-95 transition-transform col-span-2">
+          <button @click="window.goPage('matchmake')" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:scale-95 transition-transform col-span-2">
               <span class="material-symbols-outlined text-4xl text-primary">psychology</span>
               <span class="font-bold text-slate-700">AI 智能配對</span>
           </button>
@@ -322,10 +345,9 @@
     </div>
 
     <!-- ==================== 名片列表頁 ==================== -->
-    <div id="page-card" class="hidden space-y-4 animate-in fade-in">
+    <div id="page-card" x-cloak x-show="$store.ui.page === 'card'" class="space-y-4 animate-in fade-in">
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mx-1">
         <h3 class="font-black text-lg mb-3 text-slate-800 flex items-center gap-2"><span class="material-symbols-outlined text-blue-500 icon-filled">document_scanner</span> 掃描建立名片</h3>
-        
         <div class="flex gap-3 mt-4">
             <button onclick="document.getElementById('cameraInput').click()" class="flex-1 bg-blue-50 text-blue-600 py-4 rounded-2xl font-bold flex flex-col justify-center items-center gap-2 cursor-pointer active:scale-95 transition-transform border border-blue-100 shadow-sm">
                 <span class="material-symbols-outlined text-3xl">photo_camera</span>
@@ -341,31 +363,29 @@
         </div>
       </div>
       
-      <!-- 搜尋欄位 -->
       <div class="mx-1 mt-4">
           <div class="relative">
               <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
               <input type="text" id="search-card-input" placeholder="搜尋姓名、公司或電話..." class="custom-input !pl-11 !py-3 shadow-sm border border-slate-100" oninput="window.filterCards()">
           </div>
       </div>
-
       <div id="card-list" class="space-y-3 mt-4 mx-1"></div>
     </div>
 
     <!-- ==================== 名片詳細頁 ==================== -->
-    <div id="page-card-detail" class="hidden animate-in slide-in-from-right-8 mx-1">
+    <div id="page-card-detail" x-cloak x-show="$store.ui.page === 'card-detail'" class="animate-in slide-in-from-right-8 mx-1">
       <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
           
+          <!-- Alpine 標籤控制 -->
           <div class="flex border-b border-slate-100">
-            <button class="flex-1 py-4 font-bold text-sm text-blue-600 border-b-2 border-blue-600 transition-colors" id="tab-info" onclick="window.switchTab('info')">📋 聯絡資料</button>
-            <button class="flex-1 py-4 font-bold text-sm text-slate-400 border-b-2 border-transparent transition-colors" id="tab-edit" onclick="window.switchTab('edit')">✏️ 編輯內容</button>
-            <button class="flex-1 py-4 font-bold text-sm text-slate-400 border-b-2 border-transparent transition-colors" id="tab-ecard" onclick="window.switchTab('ecard')">🪪 數位名片</button>
+            <button @click="$store.ui.cardTab = 'info'" :class="$store.ui.cardTab === 'info' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 border-transparent'" class="flex-1 py-4 font-bold text-sm transition-colors">📋 聯絡資料</button>
+            <button @click="$store.ui.cardTab = 'edit'" :class="$store.ui.cardTab === 'edit' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 border-transparent'" class="flex-1 py-4 font-bold text-sm transition-colors">✏️ 編輯內容</button>
+            <button @click="$store.ui.cardTab = 'ecard'; window.renderECardSettings(); window.updateECardPreview();" :class="$store.ui.cardTab === 'ecard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 border-transparent'" class="flex-1 py-4 font-bold text-sm transition-colors">🪪 數位名片</button>
           </div>
 
           <!-- Tab: 資料 -->
-          <div id="tab-content-info" class="p-5">
+          <div x-cloak x-show="$store.ui.cardTab === 'info'" class="p-5">
             <div id="detail-fields" class="space-y-2"></div>
-            
             <div class="grid grid-cols-2 gap-3 mt-6">
                 <button id="btn-share-line-info" onclick="window.shareECardToLine('btn-share-line-info')" class="w-full bg-[#06C755] text-white py-3 rounded-xl font-bold shadow-md active:scale-95 transition-transform flex justify-center items-center gap-1">
                     <span class="material-symbols-outlined text-[18px]">send</span> 傳送名片
@@ -379,8 +399,8 @@
             </div>
           </div>
 
-          <!-- Tab: 編輯 (16 個欄位) -->
-          <div id="tab-content-edit" class="hidden p-5 space-y-3 bg-slate-50/50">
+          <!-- Tab: 編輯 -->
+          <div x-cloak x-show="$store.ui.cardTab === 'edit'" class="p-5 space-y-3 bg-slate-50/50">
             <div><label class="text-xs text-slate-500 font-bold ml-1">姓名</label><input id="edit-姓名" class="custom-input !py-3 mt-1" type="text"></div>
             <div><label class="text-xs text-slate-500 font-bold ml-1">英文名</label><input id="edit-英文名" class="custom-input !py-3 mt-1" type="text"></div>
             <div><label class="text-xs text-slate-500 font-bold ml-1">職稱</label><input id="edit-職稱" class="custom-input !py-3 mt-1" type="text"></div>
@@ -419,10 +439,9 @@
           </div>
 
           <!-- Tab: 數位名片 -->
-          <div id="tab-content-ecard" class="hidden p-5 space-y-5 bg-slate-50/30">
+          <div x-cloak x-show="$store.ui.cardTab === 'ecard'" class="p-5 space-y-5 bg-slate-50/30">
             <div id="ecard-preview-area" class="rounded-2xl overflow-hidden shadow-lg border border-slate-100"></div>
 
-            <!-- V1 設定 -->
             <div id="ecard-v1-settings" class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
               <div>
                   <p class="font-bold text-sm text-slate-700 flex items-center gap-1 mb-2"><span class="material-symbols-outlined text-[18px]">image</span> 封面圖片</p>
@@ -450,9 +469,9 @@
     </div>
 
     <!-- ==================== 配對大廳頁面 ==================== -->
-    <div id="page-matchmake" class="hidden animate-in fade-in mx-1 pb-10">
+    <div id="page-matchmake" x-cloak x-show="$store.ui.page === 'matchmake'" class="animate-in fade-in mx-1 pb-10">
       
-      <div id="admin-tools-container" class="bg-white rounded-3xl shadow-sm p-5 mb-5 border border-slate-100 flex justify-between items-center hidden">
+      <div x-cloak x-show="$store.ui.hasAdminRights" class="bg-white rounded-3xl shadow-sm p-5 mb-5 border border-slate-100 flex justify-between items-center">
         <div>
            <h3 class="text-sm font-black text-slate-800">資料庫標籤狀態</h3>
            <p id="sync-status" class="text-[12px] text-slate-500 font-medium mt-1 leading-snug">
@@ -469,7 +488,7 @@
         </div>
       </div>
 
-      <div id="privacy-lock-container" class="hidden bg-white rounded-3xl shadow-sm p-8 mb-6 text-center border border-slate-100 animate-in zoom-in-95">
+      <div x-cloak x-show="$store.ui.isMyCardPrivate && !$store.ui.hasAdminRights" class="bg-white rounded-3xl shadow-sm p-8 mb-6 text-center border border-slate-100 animate-in zoom-in-95">
         <div class="w-16 h-16 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
           <span class="material-symbols-outlined text-[32px] icon-filled">lock</span>
         </div>
@@ -478,14 +497,14 @@
         <button onclick="window.toggleFatePrivacy(true)" class="w-full py-3.5 bg-[#06C755] text-white rounded-xl font-bold text-[15px] active:scale-95 transition-transform shadow-sm flex justify-center items-center gap-2">立即公開名片並解鎖 <span class="material-symbols-outlined text-[18px]">lock_open</span></button>
       </div>
 
-      <div id="matchmaker-ui" class="bg-white rounded-3xl shadow-sm p-6 mb-6 border border-slate-100 hidden">
+      <div x-cloak x-show="!$store.ui.isMyCardPrivate || $store.ui.hasAdminRights" class="bg-white rounded-3xl shadow-sm p-6 mb-6 border border-slate-100">
         <div class="flex justify-between items-center mb-6 pb-5 border-b border-slate-50">
            <div class="flex flex-col">
                <span class="text-[15px] font-black text-slate-800 flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px] text-[#06C755] icon-filled">public</span> 參與配對池</span>
                <span class="text-[11px] text-slate-400 font-bold mt-0.5 tracking-wide">名片已公開，允許他人搜尋</span>
            </div>
            <label class="relative inline-flex items-center cursor-pointer">
-             <input type="checkbox" id="fate-privacy-toggle" class="sr-only peer" checked onchange="window.toggleFatePrivacy()">
+             <input type="checkbox" id="fate-privacy-toggle" class="sr-only peer" :checked="!$store.ui.isMyCardPrivate" onchange="window.toggleFatePrivacy()">
              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#06C755]"></div>
            </label>
         </div>
@@ -507,59 +526,48 @@
     </div>
 
     <!-- ==================== 建立活動 (Active) ==================== -->
-    <div id="page-active" class="hidden animate-in fade-in space-y-4 pb-10">
+    <div id="page-active" x-cloak x-show="$store.ui.page === 'active'" class="animate-in fade-in space-y-4 pb-10">
       
+      <!-- Alpine Tab 控制 -->
       <div class="flex p-1.5 rounded-[1rem] bg-blue-50/60 border border-blue-100/50 mb-6 mx-1">
-        <button id="tab-btn-quick" onclick="window.switchActiveTab('quick')" class="flex-1 py-2.5 rounded-xl text-[14px] font-bold bg-white text-blue-600 shadow-sm transition-all">快速匯入</button>
-        <button id="tab-btn-full" onclick="window.switchActiveTab('full')" class="flex-1 py-2.5 rounded-xl text-[14px] font-bold text-slate-500 transition-all hover:text-slate-700 bg-transparent">完整發佈</button>
-        <button id="tab-btn-series" onclick="window.switchActiveTab('series')" class="flex-1 py-2.5 rounded-xl text-[14px] font-bold text-slate-500 transition-all hover:text-slate-700 bg-transparent">系列梯次</button>
+        <button @click="$store.ui.activeTab = 'quick'" :class="$store.ui.activeTab === 'quick' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 bg-transparent'" class="flex-1 py-2.5 rounded-xl text-[14px] font-bold transition-all">快速匯入</button>
+        <button @click="$store.ui.activeTab = 'full'" :class="$store.ui.activeTab === 'full' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 bg-transparent'" class="flex-1 py-2.5 rounded-xl text-[14px] font-bold transition-all">完整發佈</button>
+        <button @click="$store.ui.activeTab = 'series'" :class="$store.ui.activeTab === 'series' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 bg-transparent'" class="flex-1 py-2.5 rounded-xl text-[14px] font-bold transition-all">系列梯次</button>
       </div>
 
       <!-- Tab 1: 快速匯入 -->
-      <div id="tab-content-quick" class="space-y-5 bg-white p-5 rounded-[2rem] shadow-sm mx-1">
+      <div x-cloak x-show="$store.ui.activeTab === 'quick'" class="space-y-5 bg-white p-5 rounded-[2rem] shadow-sm mx-1">
         <div class="flex flex-col">
             <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">活動名稱</label>
             <input type="text" id="q-name" class="custom-input" placeholder="例如：2026 商務交流會">
         </div>
         
         <div class="grid grid-cols-2 gap-4">
-            <div class="flex flex-col">
-                <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">開始時間</label>
-                <input type="datetime-local" id="q-start" class="custom-input !px-1.5 !text-[13px]">
-            </div>
-            <div class="flex flex-col">
-                <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">結束時間</label>
-                <input type="datetime-local" id="q-end" class="custom-input !px-1.5 !text-[13px]">
-            </div>
+            <div class="flex flex-col"><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">開始時間</label><input type="datetime-local" id="q-start" class="custom-input !px-1.5 !text-[13px]"></div>
+            <div class="flex flex-col"><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">結束時間</label><input type="datetime-local" id="q-end" class="custom-input !px-1.5 !text-[13px]"></div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-            <div class="flex flex-col">
-                <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">活動類型</label>
-                <select id="q-type" class="custom-input cursor-pointer" style="-webkit-appearance:none;appearance:none;"><option>例會</option><option>課程</option><option>教學</option><option>聯誼</option><option>參訪</option><option>講座</option><option>其他</option></select>
-            </div>
-            <div class="flex flex-col">
-                <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">預設身份</label>
-                <select id="q-identity" class="custom-input cursor-pointer" style="-webkit-appearance:none;appearance:none;"><option>會員</option><option>來賓</option></select>
-            </div>
+            <div class="flex flex-col"><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">活動類型</label><select id="q-type" class="custom-input cursor-pointer" style="-webkit-appearance:none;"><option>例會</option><option>課程</option><option>聯誼</option></select></div>
+            <div class="flex flex-col"><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">預設身份</label><select id="q-identity" class="custom-input cursor-pointer" style="-webkit-appearance:none;"><option>會員</option><option>來賓</option></select></div>
         </div>
 
-        <div class="flex flex-col">
+        <div class="flex flex-col" x-data="{ feeType: '免費' }">
             <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">收費方式</label>
             <div class="flex items-center gap-6 p-4 bg-slate-50 rounded-2xl border border-slate-200">
                 <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="q-fee-type" value="免費" checked onchange="window.toggleFeeInput('q')" class="w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500 focus:ring-offset-0 bg-white">
+                    <input type="radio" name="q-fee-type" value="免費" x-model="feeType" class="w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500">
                     <span class="text-[15px] font-bold text-slate-700">免費</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="q-fee-type" value="收費" onchange="window.toggleFeeInput('q')" class="w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500 focus:ring-offset-0 bg-white">
+                    <input type="radio" name="q-fee-type" value="收費" x-model="feeType" class="w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500">
                     <span class="text-[15px] font-bold text-slate-700">收費</span>
                 </label>
             </div>
-            <div id="q-price-box" class="hidden mt-3 animate-in slide-in-from-top-2">
+            <div x-cloak x-show="feeType === '收費'" class="mt-3 animate-in slide-in-from-top-2">
                 <div class="relative">
                   <span class="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">NT$</span>
-                  <input type="number" id="q-price" class="custom-input !pl-12" placeholder="請輸入金額" style="-webkit-appearance:none;-moz-appearance:textfield;">
+                  <input type="number" id="q-price" class="custom-input !pl-12" placeholder="請輸入金額" style="-webkit-appearance:none;">
                 </div>
             </div>
         </div>
@@ -575,9 +583,9 @@
         </div>
         
         <div class="flex flex-col mt-2">
-          <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">活動宣傳圖 <span class="text-[12px] text-slate-400 ml-1">(自動壓縮)</span></label>
+          <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">活動宣傳圖</label>
           <div onclick="document.getElementById('file-input-quick').click()" class="w-full h-36 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center bg-slate-50 cursor-pointer overflow-hidden transition-all hover:bg-slate-100 relative group border-none">
-            <div id="preview-placeholder-quick" class="text-center text-slate-400 flex flex-col items-center z-10"><span class="material-symbols-outlined text-3xl mb-1">add_photo_alternate</span><p class="text-[12px] font-bold tracking-wider">點擊上傳圖片</p></div>
+            <div id="preview-placeholder-quick" class="text-center text-slate-400 flex flex-col items-center z-10"><span class="material-symbols-outlined text-3xl mb-1">add_photo_alternate</span></div>
             <img id="image-preview-quick" class="hidden w-full h-full object-cover absolute inset-0 z-0">
           </div>
           <input type="hidden" id="in-image-url-quick" value="">
@@ -585,20 +593,19 @@
         </div>
         
         <div class="pt-2">
-            <button onclick="window.submitActivityForm('quick')" id="btn-submit-quick" class="w-full py-4 bg-[#06C755] text-white rounded-2xl font-bold text-[16px] shadow-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2">建立並匯入名單</button>
+            <button onclick="window.submitActivityForm('quick')" id="btn-submit-quick" class="w-full py-4 bg-[#06C755] text-white rounded-2xl font-bold text-[16px] shadow-sm active:scale-[0.98] transition-transform">建立並匯入名單</button>
         </div>
       </div>
 
       <!-- Tab 2: 完整發佈 -->
-      <div id="tab-content-full" class="hidden space-y-5 bg-white p-5 rounded-[2rem] shadow-sm mx-1">
+      <div x-cloak x-show="$store.ui.activeTab === 'full'" class="space-y-5 bg-white p-5 rounded-[2rem] shadow-sm mx-1">
         
         <div class="flex flex-col">
-          <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">活動封面圖 <span class="text-[12px] text-slate-400 ml-1">(選填)</span></label>
+          <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">活動封面圖</label>
           <div class="w-full relative">
               <div onclick="document.getElementById('file-input-full').click()" class="w-full h-40 rounded-2xl flex flex-col items-center justify-center bg-slate-100 cursor-pointer overflow-hidden transition-colors hover:bg-slate-200 relative border-none">
                   <div class="text-center text-slate-400 flex flex-col items-center z-10" id="preview-placeholder-full">
                       <span class="material-symbols-outlined text-[32px] mb-2 text-slate-300">add_photo_alternate</span>
-                      <p class="text-[13px] font-bold tracking-wider">點擊上傳圖片</p>
                   </div>
                   <img id="image-preview-full" class="absolute inset-0 w-full h-full object-cover hidden z-0">
               </div>
@@ -613,43 +620,31 @@
         </div>
         
         <div class="grid grid-cols-2 gap-4">
-            <div class="flex flex-col">
-                <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">開始時間</label>
-                <input type="datetime-local" id="f-start" class="custom-input !px-1.5 !text-[13px]">
-            </div>
-            <div class="flex flex-col">
-                <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">結束時間</label>
-                <input type="datetime-local" id="f-end" class="custom-input !px-1.5 !text-[13px]">
-            </div>
+            <div class="flex flex-col"><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">開始時間</label><input type="datetime-local" id="f-start" class="custom-input !px-1.5 !text-[13px]"></div>
+            <div class="flex flex-col"><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">結束時間</label><input type="datetime-local" id="f-end" class="custom-input !px-1.5 !text-[13px]"></div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-            <div class="flex flex-col">
-                <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">活動類型</label>
-                <select id="f-type" class="custom-input cursor-pointer" style="-webkit-appearance:none;appearance:none;"><option>例會</option><option>課程</option><option>教學</option><option>聯誼</option><option>參訪</option><option>講座</option><option>其他</option></select>
-            </div>
-            <div class="flex flex-col">
-                <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">預設身份</label>
-                <select id="f-identity" class="custom-input cursor-pointer" style="-webkit-appearance:none;appearance:none;"><option>會員</option><option>來賓</option></select>
-            </div>
+            <div class="flex flex-col"><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">活動類型</label><select id="f-type" class="custom-input cursor-pointer" style="-webkit-appearance:none;"><option>例會</option><option>課程</option></select></div>
+            <div class="flex flex-col"><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">預設身份</label><select id="f-identity" class="custom-input cursor-pointer" style="-webkit-appearance:none;"><option>會員</option><option>來賓</option></select></div>
         </div>
 
-        <div class="flex flex-col">
+        <div class="flex flex-col" x-data="{ feeType: '免費' }">
             <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">收費方式</label>
             <div class="flex items-center gap-6 p-4 bg-slate-50 rounded-2xl border border-slate-200">
                 <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="f-fee-type" value="免費" checked onchange="window.toggleFeeInput('f')" class="w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500 focus:ring-offset-0 bg-white">
+                    <input type="radio" name="f-fee-type" value="免費" x-model="feeType" class="w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500">
                     <span class="text-[15px] font-bold text-slate-700">免費</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="f-fee-type" value="收費" onchange="window.toggleFeeInput('f')" class="w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500 focus:ring-offset-0 bg-white">
+                    <input type="radio" name="f-fee-type" value="收費" x-model="feeType" class="w-5 h-5 text-blue-600 border-slate-300 focus:ring-blue-500">
                     <span class="text-[15px] font-bold text-slate-700">收費</span>
                 </label>
             </div>
-            <div id="f-price-box" class="hidden mt-3 animate-in slide-in-from-top-2">
+            <div x-cloak x-show="feeType === '收費'" class="mt-3 animate-in slide-in-from-top-2">
                 <div class="relative">
                   <span class="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">NT$</span>
-                  <input type="number" id="f-price" class="custom-input !pl-12" placeholder="請輸入金額" style="-webkit-appearance:none;-moz-appearance:textfield;">
+                  <input type="number" id="f-price" class="custom-input !pl-12" placeholder="請輸入金額">
                 </div>
             </div>
         </div>
@@ -660,21 +655,18 @@
         </div>
         
         <div class="pt-2">
-            <button onclick="window.submitActivityForm('full')" id="btn-submit-full" class="w-full py-4 bg-[#06C755] text-white rounded-2xl font-bold text-[16px] shadow-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2">確認建立並發佈</button>
+            <button onclick="window.submitActivityForm('full')" id="btn-submit-full" class="w-full py-4 bg-[#06C755] text-white rounded-2xl font-bold text-[16px] shadow-sm active:scale-[0.98]">確認建立並發佈</button>
         </div>
       </div>
 
       <!-- Tab 3: 系列梯次 -->
-      <div id="tab-content-series" class="hidden space-y-5 bg-white p-5 rounded-[2rem] shadow-sm mx-1">
+      <div x-cloak x-show="$store.ui.activeTab === 'series'" class="space-y-5 bg-white p-5 rounded-[2rem] shadow-sm mx-1">
         
         <div class="flex flex-col">
-          <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">系列總封面圖 <span class="text-[12px] text-slate-400 ml-1">(選填)</span></label>
+          <label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">系列總封面圖</label>
           <div class="w-full relative">
               <div onclick="document.getElementById('file-input-series').click()" class="w-full h-40 rounded-2xl flex flex-col items-center justify-center bg-slate-100 cursor-pointer overflow-hidden transition-colors hover:bg-slate-200 relative border-none">
-                  <div class="text-center text-slate-400 flex flex-col items-center z-10" id="preview-placeholder-series">
-                      <span class="material-symbols-outlined text-[32px] mb-2 text-slate-300">add_photo_alternate</span>
-                      <p class="text-[13px] font-bold tracking-wider">點擊上傳圖片</p>
-                  </div>
+                  <div class="text-center text-slate-400 flex flex-col items-center z-10" id="preview-placeholder-series"><span class="material-symbols-outlined text-[32px] mb-2 text-slate-300">add_photo_alternate</span></div>
                   <img id="image-preview-series" class="absolute inset-0 w-full h-full object-cover hidden z-0">
               </div>
               <input type="hidden" id="in-image-url-series" value="">
@@ -688,8 +680,8 @@
         </div>
         
         <div class="grid grid-cols-2 gap-4">
-          <div><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">活動類型</label><select id="s-type" class="custom-input cursor-pointer" style="-webkit-appearance:none;appearance:none;"><option>課程</option><option>教學</option><option>講座</option><option>例會</option><option>聯誼</option><option>參訪</option><option>其他</option></select></div>
-          <div><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">預設身份</label><select id="s-identity" class="custom-input cursor-pointer" style="-webkit-appearance:none;appearance:none;"><option>會員</option><option>來賓</option></select></div>
+          <div><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">活動類型</label><select id="s-type" class="custom-input cursor-pointer" style="-webkit-appearance:none;"><option>課程</option></select></div>
+          <div><label class="block text-[13px] text-slate-500 mb-1.5 font-bold tracking-wide pl-1">預設身份</label><select id="s-identity" class="custom-input cursor-pointer" style="-webkit-appearance:none;"><option>會員</option></select></div>
         </div>
 
         <div class="flex flex-col">
@@ -704,22 +696,21 @@
                     <span class="material-symbols-outlined text-[16px]">add</span> 新增一場
                 </button>
             </div>
-            
             <div id="batch-container" class="space-y-4"></div>
         </div>
         
         <div class="pt-2">
-            <button onclick="window.submitActivityForm('series')" id="btn-submit-series" class="w-full py-4 bg-[#06C755] text-white rounded-2xl font-bold text-[16px] shadow-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2">確認建立系列活動</button>
+            <button onclick="window.submitActivityForm('series')" id="btn-submit-series" class="w-full py-4 bg-[#06C755] text-white rounded-2xl font-bold text-[16px] shadow-sm active:scale-[0.98]">確認建立系列活動</button>
         </div>
       </div>
 
     </div>
 
     <!-- ==================== 管理核銷頁面 (Admin Activities) ==================== -->
-    <div id="page-admin-activities" class="hidden animate-in fade-in pb-10 pt-2 mx-1">
+    <div id="page-admin-activities" x-cloak x-show="$store.ui.page === 'admin-activities'" class="animate-in fade-in pb-10 pt-2 mx-1">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-black text-slate-800 tracking-tight">管理核銷</h2>
-        <button onclick="window.goPage('admin-stats')" class="bg-[#1e293b] text-white px-4 py-2.5 rounded-xl text-[13px] font-bold shadow-sm flex items-center gap-1.5 active:scale-95 transition-transform">
+        <button @click="window.goPage('admin-stats')" class="bg-[#1e293b] text-white px-4 py-2.5 rounded-xl text-[13px] font-bold shadow-sm flex items-center gap-1.5 active:scale-95 transition-transform">
           <span class="material-symbols-outlined text-[18px]">bar_chart</span> 營運統計
         </button>
       </div>
@@ -727,9 +718,9 @@
     </div>
 
     <!-- ==================== 營運統計獨立頁面 (Admin Stats) ==================== -->
-    <div id="page-admin-stats" class="hidden animate-in fade-in pb-10 pt-2 mx-1">
+    <div id="page-admin-stats" x-cloak x-show="$store.ui.page === 'admin-stats'" class="animate-in fade-in pb-10 pt-2 mx-1">
       <div class="flex items-center gap-3 mb-6 px-1">
-        <button onclick="window.goPage('admin-activities')" class="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 active:scale-90 transition-transform shadow-sm">
+        <button @click="window.goPage('admin-activities')" class="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 active:scale-90 transition-transform shadow-sm">
           <span class="material-symbols-outlined text-[24px]">arrow_back</span>
         </button>
         <h2 class="text-2xl font-black text-slate-800 tracking-tight">營運統計</h2>
@@ -738,7 +729,7 @@
     </div>
 
     <!-- ==================== CRM 管理頁面 ==================== -->
-    <div id="page-admin-crm" class="hidden animate-in fade-in pb-10">
+    <div id="page-admin-crm" x-cloak x-show="$store.ui.page === 'admin-crm'" class="animate-in fade-in pb-10">
       <div class="bg-white p-8 rounded-[2rem] text-center shadow-sm border border-slate-100 mx-2 mt-4">
         <span class="material-symbols-outlined text-[48px] text-slate-300 mb-3">groups</span>
         <h3 class="text-lg font-black text-slate-800">CRM 系統建置中</h3>
@@ -749,31 +740,31 @@
   </main>
 
   <!-- 一般底部導航列 -->
-  <nav id="bottom-nav" class="fixed bottom-0 w-full max-w-md bg-white/95 backdrop-blur-xl flex justify-evenly items-center px-1 py-2 z-40 pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.03)] left-1/2 -translate-x-1/2 h-[76px] rounded-t-3xl border-t border-slate-100 hidden transition-all">
-    <button onclick="window.goPage('home')"        id="nav-btn-home"      class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">home</span></div><span class="text-[10px] font-bold tracking-wide mt-0.5">首頁</span></button>
-    <button onclick="window.goPage('card')"        id="nav-btn-card"      class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">recent_patient</span></div><span class="text-[10px] font-bold tracking-wide mt-0.5">名片庫</span></button>
-    <button onclick="window.goPage('matchmake')"  id="nav-btn-matchmake" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">psychology</span></div><span class="text-[10px] font-bold tracking-wide mt-0.5">配對</span></button>
-    <button onclick="window.goPage('admin-settings')" id="nav-btn-admin-settings" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">person</span></div><span class="text-[10px] font-bold tracking-wide mt-0.5">設定</span></button>
+  <nav id="bottom-nav" x-cloak x-show="$store.ui.viewMode === 'user' && !['register', 'admin-stats'].includes($store.ui.page)" class="fixed bottom-0 w-full max-w-md bg-white/95 backdrop-blur-xl flex justify-evenly items-center px-1 py-2 z-40 pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.03)] left-1/2 -translate-x-1/2 h-[76px] rounded-t-3xl border-t border-slate-100 transition-all">
+    <button @click="window.goPage('home')"        :class="{ 'nav-active': $store.ui.page === 'home' }" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">home</span></div><span class="text-[10px] font-bold tracking-wide mt-0.5">首頁</span></button>
+    <button @click="window.goPage('card')"        :class="{ 'nav-active': $store.ui.page === 'card' }" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">recent_patient</span></div><span class="text-[10px] font-bold tracking-wide mt-0.5">名片庫</span></button>
+    <button @click="window.goPage('matchmake')"   :class="{ 'nav-active': $store.ui.page === 'matchmake' }" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">psychology</span></div><span class="text-[10px] font-bold tracking-wide mt-0.5">配對</span></button>
+    <button @click="window.goPage('admin-settings')" :class="{ 'nav-active': $store.ui.page === 'admin-settings' }" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">person</span></div><span class="text-[10px] font-bold tracking-wide mt-0.5">設定</span></button>
   </nav>
 
   <!-- 管理員底部導航列 -->
-  <nav id="bottom-nav-admin" class="fixed bottom-0 w-full max-w-md bg-white border-t border-slate-100 flex justify-evenly items-center px-2 py-2 z-[80] pb-safe shadow-[0_-4px_15px_rgba(0,0,0,0.03)] left-1/2 -translate-x-1/2 h-[76px] rounded-t-3xl hidden">
-    <button onclick="window.goPage('admin-activities')" id="admin-nav-btn-admin-activities" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">fact_check</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">核銷</span></button>
-    <button onclick="window.goPage('active')"           id="admin-nav-btn-active" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">add_circle</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">建立</span></button>
-    <button onclick="window.goPage('admin-crm')"        id="admin-nav-btn-admin-crm" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">groups</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">CRM</span></button>
-    <button onclick="window.goPage('matchmake')"        id="admin-nav-btn-matchmake" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">psychology</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">配對</span></button>
-    <button onclick="window.goPage('card')"             id="admin-nav-btn-card" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">recent_patient</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">名片</span></button>
-    <button onclick="window.goPage('admin-settings')"   id="admin-nav-btn-admin-settings" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">settings</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">參數</span></button>
+  <nav id="bottom-nav-admin" x-cloak x-show="$store.ui.viewMode === 'admin' && !['register', 'admin-stats'].includes($store.ui.page)" class="fixed bottom-0 w-full max-w-md bg-white border-t border-slate-100 flex justify-evenly items-center px-2 py-2 z-[80] pb-safe shadow-[0_-4px_15px_rgba(0,0,0,0.03)] left-1/2 -translate-x-1/2 h-[76px] rounded-t-3xl">
+    <button @click="window.goPage('admin-activities')" :class="{ 'nav-active': $store.ui.page === 'admin-activities' }" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">fact_check</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">核銷</span></button>
+    <button @click="window.goPage('active')"           :class="{ 'nav-active': $store.ui.page === 'active' }" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">add_circle</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">建立</span></button>
+    <button @click="window.goPage('admin-crm')"        :class="{ 'nav-active': $store.ui.page === 'admin-crm' }" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">groups</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">CRM</span></button>
+    <button @click="window.goPage('matchmake')"        :class="{ 'nav-active': $store.ui.page === 'matchmake' }" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">psychology</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">配對</span></button>
+    <button @click="window.goPage('card')"             :class="{ 'nav-active': $store.ui.page === 'card' }" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">recent_patient</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">名片</span></button>
+    <button @click="window.goPage('admin-settings')"   :class="{ 'nav-active': $store.ui.page === 'admin-settings' }" class="nav-btn"><div class="icon-box"><span class="material-symbols-outlined text-[24px]">settings</span></div><span class="text-[10px] mt-1 font-bold whitespace-nowrap">參數</span></button>
   </nav>
 
 </div>
 
 <!-- 專屬 QR Code 彈出視窗 -->
-<div id="qr-modal" class="hidden fixed inset-0 bg-slate-800/60 backdrop-blur-sm flex flex-col justify-center items-center z-[2000] p-4">
+<div id="qr-modal" x-cloak x-show="$store.ui.qrModalOpen" class="fixed inset-0 bg-slate-800/60 backdrop-blur-sm flex flex-col justify-center items-center z-[2000] p-4">
     <div class="bg-white rounded-3xl p-6 flex flex-col items-center w-full max-w-[300px] shadow-2xl animate-in zoom-in-95">
         <div class="w-full flex justify-between items-center mb-4">
             <h3 class="font-black text-slate-800 text-lg">我的專屬行動名片</h3>
-            <button onclick="document.getElementById('qr-modal').classList.add('hidden')" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 active:scale-95"><span class="material-symbols-outlined">close</span></button>
+            <button @click="$store.ui.qrModalOpen = false" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 active:scale-95"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="bg-slate-50 p-2 rounded-2xl border border-slate-100 mb-4 w-full aspect-square flex items-center justify-center relative">
             <img id="qr-code-img" src="" class="w-full h-full object-contain hidden" alt="QR Code">
@@ -782,16 +773,16 @@
             </div>
         </div>
         <p class="text-[13px] text-slate-500 font-medium text-center leading-relaxed">請邀請對方使用 LINE 掃描上方條碼<br>立即互換名片並綁定商機推薦</p>
-        <button onclick="document.getElementById('qr-modal').classList.add('hidden'); window.shareMyCard(this);" class="mt-5 w-full py-3.5 bg-[#06C755] text-white rounded-xl font-bold text-[15px] shadow-sm active:scale-95 transition-transform flex justify-center items-center gap-2"><span class="material-symbols-outlined text-[20px]">send</span> 轉發名片連結</button>
+        <button onclick="Alpine.store('ui').qrModalOpen = false; window.shareMyCard(this);" class="mt-5 w-full py-3.5 bg-[#06C755] text-white rounded-xl font-bold text-[15px] shadow-sm active:scale-95 transition-transform flex justify-center items-center gap-2"><span class="material-symbols-outlined text-[20px]">send</span> 轉發名片連結</button>
     </div>
 </div>
 
 <!-- 唯讀名片彈出視窗 -->
-<div id="readonly-card-modal" class="hidden fixed inset-0 bg-slate-800/60 backdrop-blur-sm flex flex-col justify-end animate-in fade-in duration-300 w-full max-w-md mx-auto left-0 right-0 z-[1050]">
+<div id="readonly-card-modal" x-cloak x-show="$store.ui.roModalOpen" class="fixed inset-0 bg-slate-800/60 backdrop-blur-sm flex flex-col justify-end animate-in fade-in duration-300 w-full max-w-md mx-auto left-0 right-0 z-[1050]">
   <div class="bg-white rounded-t-3xl overflow-hidden flex flex-col max-h-[85vh] shadow-2xl animate-in slide-in-from-bottom-8">
       <div class="px-5 py-4 flex justify-between items-center border-b border-slate-100 shrink-0 bg-white">
         <h3 class="text-lg font-black text-slate-800">數位名片</h3>
-        <button onclick="window.closeReadOnlyCard()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 active:scale-90 transition-transform"><span class="material-symbols-outlined">close</span></button>
+        <button @click="$store.ui.roModalOpen = false" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 active:scale-90 transition-transform"><span class="material-symbols-outlined">close</span></button>
       </div>
 
       <div class="flex-1 overflow-y-auto p-5 pb-8 flex flex-col items-center bg-slate-50">
@@ -807,7 +798,7 @@
 </div>
 
 <!-- 裁切彈窗 (Cropper Modal) -->
-<div id="cropper-modal" class="hidden fixed inset-0 bg-black/90 z-[2000] flex flex-col w-full max-w-md mx-auto left-0 right-0">
+<div id="cropper-modal" x-cloak x-show="$store.ui.cropperOpen" class="fixed inset-0 bg-black/90 z-[2000] flex flex-col w-full max-w-md mx-auto left-0 right-0">
   <div class="flex-1 w-full h-full overflow-hidden flex items-center justify-center p-4">
     <img id="cropper-image" class="max-w-full max-h-full">
   </div>
@@ -818,7 +809,7 @@
 </div>
 
 <!-- 建立活動專用裁切彈窗 -->
-<div id="section-image-cropper" class="hidden fixed inset-0 bg-slate-900 flex flex-col animate-in fade-in duration-200 w-full max-w-md mx-auto z-[2000]">
+<div id="section-image-cropper" x-cloak x-show="$store.ui.activeCropperOpen" class="fixed inset-0 bg-slate-900 flex flex-col animate-in fade-in duration-200 w-full max-w-md mx-auto z-[2000]">
   <div class="flex justify-between items-center p-4 bg-slate-900 text-white shrink-0 z-10 shadow-sm border-b border-slate-800">
     <button onclick="window.cancelActiveCrop()" class="px-3 py-2 font-bold text-slate-400 active:scale-90 transition-transform text-[15px]">取消</button>
     <span class="font-bold text-[16px] tracking-wider text-white flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">crop</span> 裁切圖片</span>
@@ -843,7 +834,7 @@
   // 儲存推薦人與歸屬網段
   window.urlRef = '';
   window.urlNet = '';
-  let currentNetworkId = ''; // 決定當前用戶能看到哪些資料的關鍵 ID
+  let currentNetworkId = ''; 
 
   // 裁切目標 ('general' = 名片庫, 'mycard' = 專屬名片設定)
   window.cropTarget = 'general';
@@ -856,12 +847,10 @@
 
   // ==================== 前端共用函式區 (Browser Scope) ====================
   
-  // 安全跳脫函式：保護 Inline JS 參數，防堵含有換行、單引號等特殊字元的資料造成 SyntaxError
   window.escapeJS = function(str) {
       return String(str || '').replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "\\n").replace(/\r/g, "");
   };
 
-  // 新增全域的時間格式化函式，將 ISO 轉為直覺閱讀格式
   window.formatDisplayTime = function(val) {
       if (!val) return '';
       try {
@@ -901,21 +890,16 @@
   let allCards = [];
   let currentCard = null;
   let currentUserCard = null; 
-  let isProcessing = false;
   let cropperInstance = null;
   let activeCropperInstance = null;
   let currentActiveCropTarget = '';
   let activeBatchCount = 0;
   
   let userRole = 'user'; 
-  let hasAdminRights = false;
-  let currentViewMode = 'user';
   
   let currentECardStyle = 'v1';
   let v1Buttons = [];
   window.userSocials = [];
-  
-  // 我的專屬名片設定
   let myV1Buttons = [];
 
   window.showToast = function(msg, isError = false) {
@@ -935,7 +919,6 @@
 
   window.fetchAPI = async function(action, payload = {}, silent = false) {
     try {
-      // 全域注入 networkId 與 role，確保後端能正確隔離資料
       payload.networkId = currentNetworkId;
       payload.role = userRole;
       payload.userId = currentUserProfile?.userId;
@@ -954,7 +937,65 @@
     }
   };
 
-  // ------------------------- 新增補齊的前端互動函式 ------------------------- //
+  // ------------------------- UI 路由與 Alpine 整合控制 ------------------------- //
+
+  window.goPage = function(page, isInitLoad = false) {
+    if (page === 'profile') page = 'admin-settings'; 
+    Alpine.store('ui').page = page;
+    
+    if (!isInitLoad) {
+        if (page === 'admin-activities') window.loadAdminActivities();
+        else if (page === 'home') window.loadUserActivities();
+        else if (page === 'admin-stats') window.loadAdminStats();
+        else if (page === 'admin-settings') {
+            if (currentUser) {
+                const pn = document.getElementById('profile-name');
+                if (pn) pn.value = currentUser.name || '';
+                const pp = document.getElementById('profile-phone');
+                if (pp) pp.value = String(currentUser.phone || '').replaceAll(String.fromCharCode(8203), '').replaceAll("'", "");
+                const pi = document.getElementById('profile-industry');
+                if (pi) pi.value = currentUser.industry || '';
+                const pb = document.getElementById('profile-birthday');
+                if (pb) pb.value = currentUser.birthday || '';
+            }
+            window.userSocials = [];
+            try { if(currentUser && currentUser.socials) window.userSocials = JSON.parse(currentUser.socials); } catch(e){}
+            
+            let currentBanner = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80';
+            let currentYoutube = ''; 
+            if (currentUserCard && currentUserCard['自訂名片設定']) {
+                try {
+                    const cfg = JSON.parse(currentUserCard['自訂名片設定']);
+                    if (cfg.homeBanner) currentBanner = cfg.homeBanner;
+                    if (cfg.homeYoutube) currentYoutube = cfg.homeYoutube;
+                } catch(e){}
+            }
+            const bannerInput = document.getElementById('input-store-banner');
+            if(bannerInput) bannerInput.value = currentBanner;
+            const bannerPreview = document.getElementById('setting-preview-banner');
+            if(bannerPreview) bannerPreview.src = currentBanner;
+            const ytInput = document.getElementById('input-store-youtube');
+            if(ytInput) ytInput.value = currentYoutube;
+            
+            if (Alpine.store('ui').isAdmin && allSystemUsers.length === 0) window.loadAllUsers(); 
+        }
+    }
+  };
+
+  window.toggleAdminMode = function() {
+      const ui = Alpine.store('ui');
+      ui.viewMode = ui.viewMode === 'admin' ? 'user' : 'admin';
+      window.showToast(ui.viewMode === 'admin' ? '已切換至【後台管理模式】' : '已切換至【前台用戶模式】');
+      
+      if (ui.viewMode === 'admin') {
+          if (activeBatchCount === 0) window.addBatchRow(); 
+          window.goPage('admin-activities'); 
+      } else {
+          window.goPage('home');
+      }
+  };
+
+  // ------------------------- 業務邏輯與 API ------------------------- //
 
   window.shareECardToLine = async function(btnId) {
       if (!currentCard) return window.showToast('無法取得名片資料', true);
@@ -970,8 +1011,8 @@
           const flexMsg = await window.fetchAPI('buildFlexMessage', { 
               card: currentCard, 
               config: config, 
-              referrerId: currentUserProfile.userId, // 自己作為推薦人
-              networkId: currentNetworkId            // 傳遞當前的歸屬網段
+              referrerId: currentUserProfile.userId,
+              networkId: currentNetworkId
           }, true);
           if (flexMsg) {
               await window.triggerFlexSharing(flexMsg, "您收到一張數位名片");
@@ -987,9 +1028,11 @@
       if (!currentUserCard) {
           window.showToast('尚未建立專屬名片，為您導向設定頁面', true);
           window.goPage('admin-settings');
-          const detailEl = document.getElementById('details-my-ecard');
-          if(detailEl) detailEl.open = true;
-          setTimeout(() => detailEl?.scrollIntoView({behavior: 'smooth'}), 300);
+          setTimeout(() => {
+             const detailEl = document.getElementById('details-my-ecard');
+             if(detailEl) detailEl.open = true;
+             detailEl?.scrollIntoView({behavior: 'smooth'})
+          }, 300);
           return;
       }
       const oriHtml = btn.innerHTML;
@@ -1001,7 +1044,7 @@
           const flexMsg = await window.fetchAPI('buildFlexMessage', { 
               card: currentUserCard, 
               config: config, 
-              referrerId: currentUserProfile.userId, // 傳遞自己作為推薦人
+              referrerId: currentUserProfile.userId,
               networkId: currentNetworkId
           }, true);
           if (flexMsg) {
@@ -1032,29 +1075,20 @@
       let config = {};
       try { config = JSON.parse(currentUserCard['自訂名片設定']); } catch(e){}
 
-      const toggleEl = document.getElementById('fate-privacy-toggle');
+      const ui = Alpine.store('ui');
       if (forceOpen) {
           config.isPrivate = false;
-          if(toggleEl) toggleEl.checked = true;
       } else {
-          config.isPrivate = !toggleEl.checked;
+          config.isPrivate = !config.isPrivate; // Toggle logic based on current config
       }
 
       try {
           await window.fetchAPI('updateCard', { rowId: currentUserCard.rowId, data: { '自訂名片設定': JSON.stringify(config) } }, true);
           currentUserCard['自訂名片設定'] = JSON.stringify(config);
+          ui.isMyCardPrivate = config.isPrivate;
           window.showToast(config.isPrivate ? '已切換為私人模式' : '✅ 已公開名片，解鎖配對功能');
-
-          if (!config.isPrivate) {
-              document.getElementById('privacy-lock-container').classList.add('hidden');
-              document.getElementById('matchmaker-ui').classList.remove('hidden');
-          } else if (!hasAdminRights) {
-              document.getElementById('privacy-lock-container').classList.remove('hidden');
-              document.getElementById('matchmaker-ui').classList.add('hidden');
-          }
       } catch(e) {
           window.showToast('狀態更新失敗：' + e.message, true);
-          if(toggleEl) toggleEl.checked = !config.isPrivate;
       }
   };
 
@@ -1110,10 +1144,6 @@
       }
   };
 
-  window.closeReadOnlyCard = function() {
-      document.getElementById('readonly-card-modal').classList.add('hidden');
-  };
-
   window.shareReadOnlyCardToLine = async function(btn) {
       if (!window.roCardData) return;
       const oriHtml = btn.innerHTML;
@@ -1135,30 +1165,6 @@
           if (btn) { btn.innerHTML = oriHtml; btn.disabled = false; }
       }
   };
-
-  window.unpublishActivity = async function(actId, btnEl) {
-      if(!confirm('確定要下架此活動嗎？相關的所有報名資料也將一併移除。')) return;
-      const oriHtml = btnEl.innerHTML;
-      btnEl.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span>';
-      btnEl.disabled = true;
-      
-      try {
-          const res = await window.fetchAPI('removeAct', { activityId: actId }, true); 
-          if (res && !res.error) {
-              window.showToast('✅ 活動已成功下架！');
-              window.loadAdminActivities(); 
-              window.loadUserActivities(); 
-          } else {
-              throw new Error(res.error || '下架失敗');
-          }
-      } catch(e) {
-          window.showToast('⚠️ ' + e.message, true);
-          btnEl.innerHTML = oriHtml;
-          btnEl.disabled = false;
-      }
-  };
-
-  // ------------------------------------------------------------------------- //
 
   window.setDescAlign = function(align) {
       window.currentDescAlign = align;
@@ -1216,7 +1222,6 @@
       }
 
       if (!currentUserCard) {
-          // 自動為 Store 用戶建立一份基礎名片，避免後續儲存報錯阻擋體驗
           window.showToast('正在初始化您的商家專屬檔案...', false);
           try {
               const newCardPayload = {
@@ -1269,28 +1274,23 @@
       }
   };
 
-  // =============== 【QR Code 顯示函式】 ===============
   window.showMyQRCode = function() {
       if (!currentUserCard) {
           window.showToast('請先建立專屬名片', true);
           return;
       }
-      const modal = document.getElementById('qr-modal');
+      Alpine.store('ui').qrModalOpen = true;
+      
       const img = document.getElementById('qr-code-img');
       const loading = document.getElementById('qr-loading');
-      
-      modal.classList.remove('hidden');
       img.classList.add('hidden');
       loading.classList.remove('hidden');
       
-      // 包含推薦人與網段追蹤參數
       let badgeUrl = 'https://liff.line.me/' + LIFF_ID + '?shareCardId=' + currentUserCard.rowId;
       badgeUrl += '&ref=' + currentUserProfile.userId;
       badgeUrl += '&net=' + currentNetworkId;
       
-      // 採用穩定且免授權的 QuickChart API
       const qrUrl = 'https://quickchart.io/qr?text=' + encodeURIComponent(badgeUrl) + '&size=300&margin=2';
-      
       img.onload = () => {
           loading.classList.add('hidden');
           img.classList.remove('hidden');
@@ -1298,8 +1298,6 @@
       img.src = qrUrl;
   };
 
-  // =============== 【名片處理相關函式】 ===============
-  
   window.openCardDetailById = function(rowId) {
       const card = allCards.find(c => String(c.rowId) === String(rowId));
       if (card) window.openCardDetail(card);
@@ -1353,26 +1351,8 @@
       if (colorInput) colorInput.value = '#666666';
     }
 
-    window.switchTab('info');
+    Alpine.store('ui').cardTab = 'info';
     window.goPage('card-detail');
-  };
-
-  window.switchTab = function(tab) {
-    ['info','edit','ecard'].forEach(t => {
-      document.getElementById('tab-content-' + t).classList.toggle('hidden', t !== tab);
-      const btn = document.getElementById('tab-' + t);
-      if(t === tab) {
-          btn.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
-          btn.classList.remove('text-slate-400', 'border-transparent');
-      } else {
-          btn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
-          btn.classList.add('text-slate-400', 'border-transparent');
-      }
-    });
-    if (tab === 'ecard') {
-      window.renderECardSettings();
-      window.updateECardPreview();
-    }
   };
 
   window.saveCardEdit = async function() {
@@ -1621,17 +1601,13 @@
   };
 
   window.initMyECard = function() {
-      const emptyState = document.getElementById('my-ecard-empty-state');
-      const editState = document.getElementById('my-ecard-edit-state');
-
       if (currentUserCard) {
-          if (emptyState) emptyState.classList.add('hidden');
-          if (editState) editState.classList.remove('hidden');
-
+          Alpine.store('ui').hasMyCard = true;
           try {
               const cfg = JSON.parse(currentUserCard['自訂名片設定'] || '{}');
               myV1Buttons = cfg.buttons || [{l:'加為好友', u:'https://line.me/R/', c:'#06C755'}];
               document.getElementById('my-v1-img-url').value = cfg.imgUrl || currentUserCard['名片圖檔'] || '';
+              Alpine.store('ui').isMyCardPrivate = cfg.isPrivate === true;
           } catch(e) {
               myV1Buttons = [{l:'加為好友', u:'https://line.me/R/', c:'#06C755'}];
               document.getElementById('my-v1-img-url').value = currentUserCard['名片圖檔'] || '';
@@ -1639,8 +1615,7 @@
           window.renderMyECardSettings();
           window.updateMyECardPreview();
       } else {
-          if (emptyState) emptyState.classList.remove('hidden');
-          if (editState) editState.classList.add('hidden');
+          Alpine.store('ui').hasMyCard = false;
       }
   };
 
@@ -1785,7 +1760,6 @@
       
       try {
           const res = await window.fetchAPI('getAllUsers', {}, true);
-          // 增強型陣列判斷，避免 API 回傳異常導致無法渲染
           if (res && !res.error && Array.isArray(res)) {
               allSystemUsers = res;
               window.renderStoreManagement();
@@ -1848,517 +1822,6 @@
       }
   };
 
-  window.goPage = function(page, isInitLoad = false) {
-    if (page === 'profile') page = 'admin-settings'; 
-
-    document.querySelectorAll('[id^="page"]').forEach(el => el.classList.add('hidden'));
-    const targetPage = document.getElementById('page-' + page);
-    if (targetPage) targetPage.classList.remove('hidden');
-    
-    if (!isInitLoad) {
-        if (page === 'admin-activities') window.loadAdminActivities();
-        else if (page === 'home') window.loadUserActivities();
-        else if (page === 'admin-stats') window.loadAdminStats();
-        else if (page === 'admin-settings') {
-            if (currentUser) {
-                const pn = document.getElementById('profile-name');
-                if (pn) pn.value = currentUser.name || '';
-                const pp = document.getElementById('profile-phone');
-                if (pp) pp.value = String(currentUser.phone || '').replaceAll(String.fromCharCode(8203), '').replaceAll("'", "");
-                const pi = document.getElementById('profile-industry');
-                if (pi) pi.value = currentUser.industry || '';
-                const pb = document.getElementById('profile-birthday');
-                if (pb) pb.value = currentUser.birthday || '';
-            }
-            window.userSocials = [];
-            try { if(currentUser && currentUser.socials) window.userSocials = JSON.parse(currentUser.socials); } catch(e){}
-            
-            const bannerMgmtBlock = document.getElementById('details-store-banner');
-            if (currentUser?.role === 'admin' || currentUser?.role === 'store') {
-                if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
-                let currentBanner = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80';
-                let currentYoutube = ''; 
-                if (currentUserCard && currentUserCard['自訂名片設定']) {
-                    try {
-                        const cfg = JSON.parse(currentUserCard['自訂名片設定']);
-                        if (cfg.homeBanner) currentBanner = cfg.homeBanner;
-                        if (cfg.homeYoutube) currentYoutube = cfg.homeYoutube;
-                    } catch(e){}
-                }
-                const bannerInput = document.getElementById('input-store-banner');
-                if(bannerInput) bannerInput.value = currentBanner;
-                const bannerPreview = document.getElementById('setting-preview-banner');
-                if(bannerPreview) bannerPreview.src = currentBanner;
-                
-                const ytInput = document.getElementById('input-store-youtube');
-                if(ytInput) ytInput.value = currentYoutube;
-            } else {
-                if (bannerMgmtBlock) bannerMgmtBlock.classList.add('hidden');
-            }
-
-            const storeMgmtBlock = document.getElementById('details-store-management');
-            if (currentUser?.role === 'admin') {
-                if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
-                if (allSystemUsers.length === 0) window.loadAllUsers(); 
-            } else {
-                if (storeMgmtBlock) storeMgmtBlock.classList.add('hidden');
-            }
-
-            // 雙重保證：進入設定頁時強制確認後台切換按鈕顯示狀態
-            const adminSwitch = document.getElementById('admin-switch-container');
-            const topNavSwitch = document.getElementById('top-nav-switch');
-            if (currentUser?.role === 'admin' || currentUser?.role === 'store') {
-                if (adminSwitch) adminSwitch.classList.remove('hidden');
-                if (topNavSwitch) topNavSwitch.classList.remove('hidden');
-            } else {
-                if (adminSwitch) adminSwitch.classList.add('hidden');
-                if (topNavSwitch) topNavSwitch.classList.add('hidden');
-            }
-        }
-    }
-
-    const bottomNav = document.getElementById('bottom-nav');
-    const bottomNavAdmin = document.getElementById('bottom-nav-admin');
-    
-    if (page === 'register' || page === 'admin-stats') {
-        if(bottomNav) bottomNav.classList.add('hidden');
-        if(bottomNavAdmin) bottomNavAdmin.classList.add('hidden');
-    } else {
-        if (currentViewMode === 'admin') {
-            if(bottomNav) bottomNav.classList.add('hidden');
-            if(bottomNavAdmin) bottomNavAdmin.classList.remove('hidden');
-        } else {
-            if(bottomNav) bottomNav.classList.remove('hidden');
-            if(bottomNavAdmin) bottomNavAdmin.classList.add('hidden');
-        }
-    }
-    
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('nav-active'));
-    const stdBtn = document.getElementById('nav-btn-' + page);
-    if (stdBtn) stdBtn.classList.add('nav-active');
-    
-    const admBtn = document.getElementById('admin-nav-btn-' + page);
-    if (admBtn) admBtn.classList.add('nav-active');
-  };
-
-  window.toggleAdminMode = function() {
-      if (currentViewMode === 'admin') {
-          currentViewMode = 'user';
-          window.showToast('已切換至【前台用戶模式】');
-          document.getElementById('header-admin-badge').classList.add('hidden');
-          window.goPage('home');
-      } else {
-          currentViewMode = 'admin';
-          window.showToast('已切換至【後台管理模式】');
-          document.getElementById('header-admin-badge').classList.remove('hidden');
-          if (activeBatchCount === 0) window.addBatchRow(); 
-          window.goPage('admin-activities'); 
-      }
-      
-      const btnText = document.getElementById('admin-switch-text');
-      if(btnText) btnText.textContent = currentViewMode === 'admin' ? '切換至前台 (一般用戶)' : '切換至後台 (管理模式)';
-      
-      const adminTools = document.getElementById('admin-tools-container');
-      if (currentViewMode === 'admin') {
-          if (adminTools) adminTools.classList.remove('hidden');
-      } else {
-          if (adminTools) adminTools.classList.add('hidden');
-      }
-  };
-
-  window.loadUserActivities = async function() {
-      const container = document.getElementById('user-activities-list');
-      if(!container) return;
-      
-      try {
-          const res = await window.fetchAPI('getPublicActivities', {}, true);
-          if (res && res.length > 0) {
-              const validActs = res.reverse(); 
-              if(validActs.length === 0) {
-                   container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-slate-100 text-slate-400 text-sm font-bold">近期無公開活動</div>';
-                   return;
-              }
-              container.innerHTML = validActs.map(act => {
-                  const title = window.escapeJS(act['活動名稱'] || '未命名活動');
-                  const time = window.formatDisplayTime(act['開始時間']);
-                  const fee = act['金額'] > 0 ? 'NT$ ' + act['金額'] : '免費';
-                  const img = act['宣傳圖'] || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80';
-                  const desc = window.escapeJS(act['活動說明'] || '');
-                  const actId = window.escapeJS(act.rowId);
-                  
-                  return '<div class="bg-white mb-6 flex flex-col pb-4 border-b border-slate-100 last:border-0">' +
-                      '<div class="w-full aspect-[16/9] relative rounded-lg overflow-hidden bg-slate-100">' +
-                          '<img src="' + img + '" class="w-full h-full object-cover">' +
-                          '<div class="absolute top-2 left-2 bg-black/60 backdrop-blur-sm text-white text-[11px] px-2 py-0.5 rounded font-normal">' + fee + '</div>' +
-                      '</div>' +
-                      '<div class="pt-3 flex flex-col">' +
-                          '<h4 class="text-[16px] text-slate-800 font-bold leading-snug mb-1">' + title + '</h4>' +
-                          '<div class="text-[13px] text-slate-500 mb-2">' + time + '</div>' +
-                          (desc ? '<p class="text-[13px] text-slate-600 line-clamp-3 leading-relaxed mb-3">' + desc + '</p>' : '') +
-                          '<button type="button" onclick="window.userJoinActivity(\'' + actId + '\', \'' + title + '\', event)" class="mt-1 w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[14px] font-medium active:scale-95 transition-transform flex justify-center items-center gap-1">' +
-                              '立即報名' +
-                          '</button>' +
-                      '</div>' +
-                  '</div>';
-              }).join('');
-          } else {
-              container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-slate-100 text-slate-400 text-sm font-bold">近期無公開活動</div>';
-          }
-      } catch(e) {
-          container.innerHTML = '<div class="text-center py-6 text-red-400 text-sm font-bold">無法載入活動</div>';
-      }
-  };
-
-  window.userJoinActivity = async function(actId, actName, event) {
-      if(!confirm('確定要報名「' + actName + '」嗎？')) return;
-      const btn = event.currentTarget;
-      const oriHtml = btn.innerHTML;
-      btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 報名中...';
-      btn.disabled = true;
-      try {
-          const res = await window.fetchAPI('joinActivity', {
-              activityId: actId,
-              activityName: actName,
-              userId: currentUserProfile.userId,
-              userName: currentUser.name,
-              userPhone: currentUser.phone,
-              defaultIdentity: '會員'
-          }, true);
-          if(res && !res.error) {
-              window.showToast('🎉 報名成功！');
-              btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">check_circle</span> 已報名';
-              btn.classList.replace('text-slate-700', 'text-green-600');
-              btn.classList.replace('bg-slate-100', 'bg-green-50');
-          } else {
-              throw new Error(res.error || '報名失敗');
-          }
-      } catch (e) {
-          window.showToast('⚠️ ' + e.message, true);
-          btn.innerHTML = oriHtml;
-          btn.disabled = false;
-      }
-  };
-
-  window.loadAdminActivities = async function() {
-      const listContainer = document.getElementById('admin-activities-list');
-      if (!listContainer) return;
-
-      listContainer.innerHTML = '<div class="text-center py-10"><span class="material-symbols-outlined animate-spin text-3xl text-slate-300">refresh</span><p class="text-sm text-slate-400 font-bold mt-2">載入活動中...</p></div>';
-
-      try {
-          const res = await window.fetchAPI('getPublicActivities', {}, true);
-          if (res && res.length > 0) {
-              const reversedRes = res.reverse();
-              listContainer.innerHTML = reversedRes.map(act => {
-                  const title = window.escapeJS(act['活動名稱'] || '未命名活動');
-                  const actId = window.escapeJS(act.rowId);
-                  const statusText = '上架'; 
-                  const statusColor = 'text-[#06C755]';
-                  
-                  return '<div class="bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-100">' +
-                      '<div class="flex justify-between items-start mb-4">' +
-                          '<div class="w-8 h-1 bg-green-100 rounded-full mt-2"></div>' +
-                          '<div class="bg-slate-50 text-slate-600 px-3 py-1 rounded-xl text-[13px] font-bold flex items-center gap-1 border border-slate-100">' +
-                              '<span class="material-symbols-outlined text-[16px]">group</span> 0' +
-                          '</div>' +
-                      '</div>' +
-                      '<h3 class="text-xl font-black text-slate-800 mb-6 tracking-tight">' + title + '</h3>' +
-                      '<div class="grid grid-cols-3 text-center mb-6 divide-x divide-slate-100">' +
-                          '<div>' +
-                              '<p class="text-[12px] font-bold text-slate-500 mb-1">狀態</p>' +
-                              '<p class="text-[14px] font-black ' + statusColor + '">' + statusText + '</p>' +
-                          '</div>' +
-                          '<div>' +
-                              '<p class="text-[12px] font-bold text-slate-500 mb-1">已到</p>' +
-                              '<p class="text-[14px] font-black text-[#06C755]">0</p>' +
-                          '</div>' +
-                          '<div>' +
-                              '<p class="text-[12px] font-bold text-slate-500 mb-1">取消</p>' +
-                              '<p class="text-[14px] font-black text-red-500">0</p>' +
-                          '</div>' +
-                      '</div>' +
-                      '<div class="flex gap-3">' +
-                          '<button type="button" onclick="window.unpublishActivity(\'' + actId + '\', this)" class="flex-1 bg-red-50 text-red-600 py-3.5 rounded-2xl font-bold text-[14px] active:scale-95 transition-transform hover:bg-red-100">下架</button>' +
-                          '<button type="button" class="flex-[1.5] bg-[#1e293b] text-white py-3.5 rounded-2xl font-bold text-[14px] active:scale-95 transition-transform shadow-md">名單核銷</button>' +
-                      '</div>' +
-                  '</div>';
-              }).join('');
-          } else {
-              listContainer.innerHTML = '<div class="text-center py-10 bg-white rounded-[1.5rem] border border-slate-100"><span class="material-symbols-outlined text-4xl text-slate-300 mb-2">inbox</span><p class="text-slate-400 font-bold text-sm">目前沒有任何活動</p></div>';
-          }
-      } catch (e) {
-          listContainer.innerHTML = '<div class="text-center py-10 text-red-500 font-bold text-sm">載入失敗：' + e.message + '</div>';
-      }
-  };
-
-  window.unpublishActivity = async function(actId, btnEl) {
-      if(!confirm('確定要下架此活動嗎？相關的所有報名資料也將一併移除。')) return;
-      const oriHtml = btnEl.innerHTML;
-      btnEl.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span>';
-      btnEl.disabled = true;
-      
-      try {
-          const res = await window.fetchAPI('removeAct', { activityId: actId }, true); 
-          if (res && !res.error) {
-              window.showToast('✅ 活動已成功下架！');
-              window.loadAdminActivities(); 
-              window.loadUserActivities(); 
-          } else {
-              throw new Error(res.error || '下架失敗');
-          }
-      } catch(e) {
-          window.showToast('⚠️ ' + e.message, true);
-          btnEl.innerHTML = oriHtml;
-          btnEl.disabled = false;
-      }
-  };
-
-  window.loadAdminStats = async function() {
-      const content = document.getElementById('admin-stats-content');
-      if(!content) return;
-      content.innerHTML = '<div class="text-center py-10"><span class="material-symbols-outlined animate-spin text-3xl text-slate-300">refresh</span><p class="text-sm text-slate-400 font-bold mt-2">載入數據中...</p></div>';
-
-      try {
-          const res = await window.fetchAPI('getAdminStats', {}, true);
-          if (res) {
-              let tableRows = '';
-              if(res.details && res.details.length > 0) {
-                  tableRows = res.details.map(d => 
-                      '<tr class="border-b border-slate-100 last:border-0">' +
-                          '<td class="py-4 px-4 font-bold text-slate-800 text-[13px] whitespace-nowrap">' + window.escapeJS(d.name) + '</td>' +
-                          '<td class="py-4 px-4 font-black text-blue-600 text-[14px] text-center">' + d.count + '</td>' +
-                          '<td class="py-4 px-4 font-black text-slate-800 text-[14px] text-center">$' + Number(d.revenue).toLocaleString() + '</td>' +
-                          '<td class="py-4 px-4 font-black text-orange-500 text-[14px] text-center">' + d.unpaid + '</td>' +
-                      '</tr>'
-                  ).join('');
-              } else {
-                  tableRows = '<tr><td colspan="4" class="text-center py-6 text-slate-400 font-bold text-[13px]">目前無活動數據</td></tr>';
-              }
-
-              content.innerHTML = 
-                  '<div class="grid grid-cols-2 gap-4 mb-4">' +
-                      '<div class="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">' +
-                          '<div class="flex items-center gap-1.5 text-[#06C755] mb-2">' +
-                              '<span class="material-symbols-outlined text-[18px] icon-filled">payments</span>' +
-                              '<span class="text-[12px] font-bold">預估總營收</span>' +
-                          '</div>' +
-                          '<div class="text-[28px] font-black text-slate-800 tracking-tight">NT$ ' + Number(res.totalRevenue || 0).toLocaleString() + '</div>' +
-                      '</div>' +
-                      '<div class="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">' +
-                          '<div class="flex items-center gap-1.5 text-blue-500 mb-2">' +
-                              '<span class="material-symbols-outlined text-[18px] icon-filled">person</span>' +
-                              '<span class="text-[12px] font-bold">總報名人數</span>' +
-                          '</div>' +
-                          '<div class="text-[28px] font-black text-slate-800 tracking-tight">' + (res.totalRegistrants || 0) + ' <span class="text-[14px] text-slate-400 font-bold ml-1">人</span></div>' +
-                      '</div>' +
-                  '</div>' +
-                  
-                  '<div class="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex justify-between items-center mb-6">' +
-                      '<div class="flex items-center gap-2 text-slate-600">' +
-                          '<span class="material-symbols-outlined text-[20px]">inventory_2</span>' +
-                          '<span class="text-[14px] font-bold">目前上架活動</span>' +
-                      '</div>' +
-                      '<div class="text-[20px] font-black text-slate-800">' + (res.activeActivitiesCount || 0) + ' <span class="text-[13px] text-slate-400 font-bold ml-1">檔</span></div>' +
-                  '</div>' +
-
-                  '<div class="mb-3 flex justify-between items-end px-1">' +
-                      '<div class="flex items-center gap-1.5 text-blue-600">' +
-                          '<span class="material-symbols-outlined text-[18px] icon-filled">bar_chart</span>' +
-                          '<span class="text-[14px] font-black tracking-wide">詳細營運報表</span>' +
-                      '</div>' +
-                      '<div class="flex items-center gap-1 text-slate-400">' +
-                          '<span class="material-symbols-outlined text-[14px]">swipe</span>' +
-                          '<span class="text-[11px] font-bold">在表格上左右滑動</span>' +
-                      '</div>' +
-                  '</div>' +
-
-                  '<div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">' +
-                      '<div class="overflow-x-auto hide-scrollbar">' +
-                          '<table class="w-full text-left border-collapse min-w-[400px]">' +
-                              '<thead>' +
-                                  '<tr class="bg-slate-50/50 border-b border-slate-100">' +
-                                      '<th class="py-3 px-4 text-[12px] font-bold text-slate-500 whitespace-nowrap">課程名稱</th>' +
-                                      '<th class="py-3 px-4 text-[12px] font-bold text-slate-500 text-center whitespace-nowrap">報名總數</th>' +
-                                      '<th class="py-3 px-4 text-[12px] font-bold text-slate-500 text-center whitespace-nowrap">應收總額</th>' +
-                                      '<th class="py-3 px-4 text-[12px] font-bold text-orange-500 text-center whitespace-nowrap">待付人數</th>' +
-                                  '</tr>' +
-                              '</thead>' +
-                              '<tbody>' +
-                                  tableRows +
-                              '</tbody>' +
-                          '</table>' +
-                      '</div>' +
-                  '</div>';
-          } else {
-              throw new Error('無法取得統計資料');
-          }
-      } catch(e) {
-          content.innerHTML = '<div class="text-center py-10 text-red-500 font-bold text-sm">載入失敗：' + e.message + '</div>';
-      }
-  };
-
-  window.renderUserSocials = function() {
-      const container = document.getElementById('user-socials-list');
-      if(!container) return;
-      const socialTypes = ['LINE','FB','IG','YT','TEL','WEB'];
-      container.innerHTML = window.userSocials.map((s, i) => 
-        '<div class="flex gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-100">' +
-          '<select class="bg-white border-none rounded-lg p-2.5 text-[12px] font-bold shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none w-[70px] shrink-0" onchange="window.userSocials['+i+'].type=this.value" style="-webkit-appearance:none;appearance:none;">' +
-            socialTypes.map(t => '<option value="' + t + '" ' + (s.type===t?'selected':'') + '>' + t + '</option>').join('') +
-          '</select>' +
-          '<input class="flex-1 bg-white border-none rounded-lg p-2.5 text-[12px] font-mono shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none" placeholder="https://" value="' + window.escapeJS(s.url||'') + '" oninput="window.userSocials['+i+'].url=this.value">' +
-          '<button type="button" onclick="window.userSocials.splice('+i+',1);window.renderUserSocials()" class="text-red-400 bg-red-50 w-9 h-9 rounded-lg flex items-center justify-center shrink-0 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">delete</span></button>' +
-        '</div>'
-      ).join('');
-  };
-
-  window.addUserSocial = function() {
-      window.userSocials.push({type: 'LINE', url: ''});
-      window.renderUserSocials();
-  };
-
-  window.saveUserSettings = async function(event) {
-      const btn = event.currentTarget || document.getElementById('btn-save-settings');
-      const originalHtml = btn.innerHTML;
-      btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 儲存中...';
-      btn.disabled = true;
-
-      window.userSocials.forEach(s => { s.url = window.cleanURI(s.url); });
-
-      const payloadData = {
-          '社群帳號': JSON.stringify(window.userSocials),
-          'TG Token': document.getElementById('setting-tg-token').value.trim(),
-          'TG Chat ID': document.getElementById('setting-tg-chatid').value.trim()
-      };
-
-      try {
-          const res = await window.fetchAPI('updateUserProfile', {
-              userId: currentUserProfile.userId,
-              data: payloadData
-          }, true);
-
-          if(res && !res.error) {
-              window.showToast('✅ 系統參數已更新！');
-              currentUser.socials = payloadData['社群帳號'];
-              currentUser.tgToken = payloadData['TG Token'];
-              currentUser.tgChatId = payloadData['TG Chat ID'];
-          } else {
-              throw new Error(res.error || '更新失敗');
-          }
-      } catch(e) {
-          window.showToast('⚠️ ' + e.message, true);
-      } finally {
-          btn.innerHTML = originalHtml;
-          btn.disabled = false;
-      }
-  };
-
-  window.submitRegistration = async function() {
-    const name = document.getElementById('reg-name').value.trim();
-    const phone = document.getElementById('reg-phone').value.trim();
-    const industry = document.getElementById('reg-industry').value.trim();
-    const birthday = document.getElementById('reg-birthday').value.trim();
-    
-    if(!name || !phone) return window.showToast('請填寫真實姓名與手機', true);
-
-    const btn = document.getElementById('btn-register');
-    btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> 註冊中...'; 
-    btn.disabled = true;
-
-    try {
-        const profile = await liff.getProfile();
-        const generatedStoreId = 'S' + profile.userId.substring(1, 9).toUpperCase(); 
-        
-        const payloadData = {
-            '姓名': name,
-            '手機': phone,
-            '業種': industry,
-            '生日': birthday,
-            '權限': 'user',
-            'storeid': generatedStoreId, 
-            '推薦人': window.urlRef,  
-            'networkId': window.urlNet || 'admin' 
-        };
-        const res = await window.fetchAPI('registerUser', {
-            userId: profile.userId,
-            ...payloadData 
-        }, true); 
-
-        if(res && !res.error) {
-            window.showToast('✅ 註冊成功，歡迎加入！');
-            currentUser = { name, industry, phone, birthday, role: 'user', networkId: payloadData.networkId };
-            userRole = 'user';
-            currentNetworkId = currentUser.networkId;
-            hasAdminRights = false;
-            currentViewMode = 'user';
-            
-            const elUserName = document.getElementById('user-name');
-            if(elUserName) elUserName.textContent = '歡迎 ' + name;
-            const elUserStatus = document.getElementById('user-status');
-            if(elUserStatus) elUserStatus.textContent = industry || '已註冊用戶';
-            
-            document.getElementById('profile-name').value = name;
-            document.getElementById('profile-phone').value = phone;
-            document.getElementById('profile-industry').value = industry;
-            document.getElementById('profile-birthday').value = birthday;
-            
-            window.loadAllData();
-            window.loadUserActivities();
-            window.goPage('home');
-        } else {
-            throw new Error(res.error || '註冊失敗');
-        }
-    } catch(e) {
-        window.showToast('⚠️ ' + e.message, true);
-    } finally {
-        btn.innerHTML = '開始使用 <span class="material-symbols-outlined">arrow_forward</span>'; 
-        btn.disabled = false;
-    }
-  };
-  
-  window.updateUserProfile = async function(event) {
-    const btn = event.currentTarget;
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 儲存中...';
-    btn.disabled = true;
-
-    const name = document.getElementById('profile-name').value.trim();
-    const phone = document.getElementById('profile-phone').value.trim();
-    const industry = document.getElementById('profile-industry').value.trim();
-    const birthday = document.getElementById('profile-birthday').value.trim();
-
-    try {
-        const profile = await liff.getProfile();
-        const payloadData = {
-            '姓名': name,
-            '手機': phone,
-            '業種': industry,
-            '生日': birthday
-        };
-        const res = await window.fetchAPI('updateUserProfile', {
-            userId: profile.userId,
-            data: payloadData
-        }, true);
-
-        if(res && !res.error) {
-            window.showToast('✅ 基本資料已更新！');
-            currentUser = { ...currentUser, name, phone, industry, birthday };
-            const elUserName = document.getElementById('user-name');
-            if(elUserName) elUserName.textContent = '歡迎回來，' + name;
-            const elUserStatus = document.getElementById('user-status');
-            if(elUserStatus) elUserStatus.textContent = industry || '已註冊用戶';
-            window.updateMyECardPreview(); 
-        } else {
-            throw new Error(res.error || '更新失敗');
-        }
-    } catch(e) {
-        window.showToast('⚠️ ' + e.message, true);
-    } finally {
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
-    }
-  };
-
   window.recognizeCard = async function(inputEl) {
     window.cropTarget = 'general';
     const file = inputEl.files[0];
@@ -2373,10 +1836,9 @@
     
     const reader = new FileReader();
     reader.onload = (e) => {
-      const cropperModal = document.getElementById('cropper-modal');
+      Alpine.store('ui').cropperOpen = true;
       const cropperImage = document.getElementById('cropper-image');
       cropperImage.src = e.target.result;
-      cropperModal.classList.remove('hidden');
 
       if (cropperInstance) cropperInstance.destroy();
       cropperInstance = new Cropper(cropperImage, {
@@ -2411,10 +1873,9 @@
       
       const reader = new FileReader();
       reader.onload = (e) => {
-        const cropperModal = document.getElementById('cropper-modal');
+        Alpine.store('ui').cropperOpen = true;
         const cropperImage = document.getElementById('cropper-image');
         cropperImage.src = e.target.result;
-        cropperModal.classList.remove('hidden');
 
         if (cropperInstance) cropperInstance.destroy();
         cropperInstance = new Cropper(cropperImage, {
@@ -2429,21 +1890,17 @@
   };
 
   window.cancelCrop = function() {
-    document.getElementById('cropper-modal').classList.add('hidden');
+    Alpine.store('ui').cropperOpen = false;
     if (cropperInstance) {
        cropperInstance.destroy();
        cropperInstance = null;
     }
-    // 防呆：關閉時把確認按鈕的事件切回預設的名片辨識，避免事件污染
     const confirmBtn = document.getElementById('btn-confirm-crop');
     if (confirmBtn) confirmBtn.setAttribute('onclick', 'window.confirmCrop()');
   };
 
-  // ----------------------------------------------------
-  // 新增：全域變數紀錄當前上傳的目標 ID
   window.currentUploadTargetId = null;
 
-  // 修改：將原本直接上傳的邏輯，改為「先開啟裁切器」
   window.uploadCustomImageToR2 = function(inputEl, targetInputId) {
     const file = inputEl.files[0];
     if (!file) return;
@@ -2452,54 +1909,39 @@
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      const cropperModal = document.getElementById('cropper-modal');
+      Alpine.store('ui').cropperOpen = true;
       const cropperImage = document.getElementById('cropper-image');
       cropperImage.src = e.target.result;
-      cropperModal.classList.remove('hidden');
 
-      // 動態替換裁切確認按鈕的事件，導向「一般圖片上傳壓縮邏輯」
       const confirmBtn = document.getElementById('btn-confirm-crop');
       if (confirmBtn) confirmBtn.setAttribute('onclick', 'window.confirmCustomImageCrop()');
 
       if (cropperInstance) cropperInstance.destroy();
 
-      // 全面解除比例限制，改為自由伸縮裁切
       cropperInstance = new Cropper(cropperImage, {
         aspectRatio: NaN,
-        viewMode: 1,
-        dragMode: 'move',
-        autoCropArea: 0.9,
-        restore: false,
-        guides: true,
-        center: true,
-        highlight: false,
-        cropBoxMovable: true,
-        cropBoxResizable: true,
-        toggleDragModeOnDblclick: false,
+        viewMode: 1, dragMode: 'move', autoCropArea: 0.9, restore: false,
+        guides: true, center: true, highlight: false, cropBoxMovable: true,
+        cropBoxResizable: true, toggleDragModeOnDblclick: false,
       });
     };
     reader.readAsDataURL(file);
-    inputEl.value = ''; // 清空 input 確保下次選同檔案會觸發
+    inputEl.value = ''; 
   };
 
-  // 新增：專門處理一般圖片的裁切、500K壓縮與上傳
   window.confirmCustomImageCrop = async function() {
     if (!cropperInstance) return;
     const btn = document.getElementById('btn-confirm-crop');
     btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px] align-middle">refresh</span> 處理中...';
     btn.disabled = true;
 
-    // 壓縮與解析度控制：最大 1200px，限制在約 500K 左右
     let size = 1200;
     let quality = 0.85;
     let base64Image = cropperInstance.getCroppedCanvas({
-      maxWidth: size,
-      maxHeight: size,
-      imageSmoothingEnabled: true,
-      imageSmoothingQuality: 'high',
+      maxWidth: size, maxHeight: size,
+      imageSmoothingEnabled: true, imageSmoothingQuality: 'high',
     }).toDataURL('image/jpeg', quality);
 
-    // 迴圈動態降質，確保 Base64 字串長度低於 50 萬 (約 375KB)
     while (base64Image.length > 500000 && quality > 0.3) {
        quality -= 0.1;
        base64Image = cropperInstance.getCroppedCanvas({ maxWidth: size, maxHeight: size }).toDataURL('image/jpeg', quality);
@@ -2510,10 +1952,8 @@
         return window.showToast("⚠️ 圖片檔案過大無法壓縮，請選擇其他圖片", true);
     }
 
-    // 關閉 Modal 並還原按鈕狀態
     window.cancelCrop(); 
 
-    // 準備進行實際的 R2 上傳
     const targetInputId = window.currentUploadTargetId;
     const targetInput = document.getElementById(targetInputId);
     const originalVal = targetInput.value;
@@ -2528,7 +1968,6 @@
         targetInput.value = res.url;
         window.showToast('✅ 圖片已成功上傳');
         
-        // 根據 ID 更新對應的預覽畫面
         if (targetInputId === 'my-v1-img-url') {
             if (typeof window.updateMyECardPreview === 'function') window.updateMyECardPreview();
         } else if (targetInputId === 'input-store-banner') {
@@ -2546,31 +1985,8 @@
       targetInput.disabled = false;
     }
   };
+
   // ----------------------------------------------------
-
-  window.switchActiveTab = function(tabId) {
-      ['quick', 'full', 'series'].forEach(id => {
-          document.getElementById('tab-content-' + id).classList.add('hidden');
-          const btn = document.getElementById('tab-btn-' + id);
-          btn.className = 'flex-1 py-2.5 rounded-xl text-[14px] font-bold text-slate-500 transition-all hover:text-slate-700 bg-transparent';
-      });
-      document.getElementById('tab-content-' + tabId).classList.remove('hidden');
-      document.getElementById('tab-btn-' + tabId).className = 'flex-1 py-2.5 rounded-xl text-[14px] font-bold bg-white text-blue-600 shadow-sm transition-all';
-  };
-
-  window.toggleFeeInput = function(prefix) {
-      const feeRadio = document.querySelector('input[name="' + prefix + '-fee-type"]:checked');
-      if(!feeRadio) return;
-      const feeType = feeRadio.value;
-      const priceBox = document.getElementById(prefix + '-price-box');
-      if (feeType === '收費') {
-          if(priceBox) priceBox.classList.remove('hidden');
-      } else {
-          if(priceBox) priceBox.classList.add('hidden');
-          const priceInput = document.getElementById(prefix + '-price');
-          if(priceInput) priceInput.value = '';
-      }
-  };
 
   window.addBatchRow = function(defaultValues = null, insertAfterId = null) {
       activeBatchCount++;
@@ -2615,22 +2031,17 @@
 
     const reader = new FileReader();
     reader.onload = (e) => {
+      Alpine.store('ui').activeCropperOpen = true;
       const img = document.getElementById('active-cropper-image'); 
       if(!img) return;
 
       img.onload = () => {
-          document.getElementById('section-image-cropper').classList.remove('hidden');
           if (activeCropperInstance) activeCropperInstance.destroy();
           img.style.opacity = '1';
           
           activeCropperInstance = new Cropper(img, { 
               aspectRatio: NaN, 
-              viewMode: 1, 
-              dragMode: 'crop', 
-              autoCropArea: 0.9, 
-              guides: true, 
-              center: true, 
-              highlight: false 
+              viewMode: 1, dragMode: 'crop', autoCropArea: 0.9, guides: true, center: true, highlight: false 
           }); 
       };
       img.src = e.target.result; 
@@ -2642,7 +2053,7 @@
 
   window.cancelActiveCrop = function() { 
     if (activeCropperInstance) { activeCropperInstance.destroy(); activeCropperInstance = null; } 
-    document.getElementById('section-image-cropper').classList.add('hidden'); 
+    Alpine.store('ui').activeCropperOpen = false;
     
     const img = document.getElementById('active-cropper-image');
     if(img) { img.removeAttribute('src'); img.style.opacity = '0'; }
@@ -2678,11 +2089,6 @@
     } else {
         alert('⚠️ 系統找不到對應的預覽區塊 (' + modeId + ')，請重新整理');
     }
-  };
-
-  const formatDT = (val) => {
-      if (!val) return '';
-      return val.replace('T', ' ');
   };
 
   window.submitActivityForm = async function(mode) { 
@@ -2815,7 +2221,6 @@
 
       if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
       
-      // 1. 立即顯示首頁
       window.goPage('home', true); 
 
       const profile = await liff.getProfile();
@@ -2823,9 +2228,6 @@
       document.getElementById('avatar').src = profile.pictureUrl || '';
       document.getElementById('avatar').classList.remove('hidden');
       
-      // ========================================================
-      // [本地快取秒開機制修正]：修復遺漏 networkId 導致的背景 API 空轉問題
-      // ========================================================
       const cacheKey = 'actmaster_user_' + profile.userId;
       const cachedData = localStorage.getItem(cacheKey);
       if (cachedData) {
@@ -2833,42 +2235,24 @@
               const parsed = JSON.parse(cachedData);
               currentUser = parsed;
               userRole = currentUser.role || 'user';
+              Alpine.store('ui').role = userRole; 
               
-              // [重點修復] 必須從快取中判斷並還原 networkId，否則背景請求會失敗！
               if (userRole === 'store' || userRole === 'admin') {
                   currentNetworkId = profile.userId; 
               } else {
                   currentNetworkId = currentUser.networkId || 'admin'; 
               }
-              
-              hasAdminRights = (userRole === 'admin' || userRole === 'store');
-              
-              // 0.01 秒立刻解鎖後台按鈕
-              if (hasAdminRights) {
-                  const adminSwitch = document.getElementById('admin-switch-container');
-                  if (adminSwitch) adminSwitch.classList.remove('hidden');
-                  const topNavSwitch = document.getElementById('top-nav-switch');
-                  if (topNavSwitch) topNavSwitch.classList.remove('hidden');
-                  const bannerMgmtBlock = document.getElementById('details-store-banner');
-                  if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
-              }
-              if (userRole === 'admin') {
-                  const storeMgmtBlock = document.getElementById('details-store-management');
-                  if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
-              }
           } catch(e) {}
       }
 
-      // 2. 立即背景發送讀取公開活動的請求
       window.loadUserActivities();
 
-      // 3. 背景非同步驗證 (同時更新最新權限到本地快取)
       window.fetchAPI('checkUser', { userId: profile.userId }, true).then(checkRes => {
           if (checkRes && checkRes.isRegistered) {
               currentUser = checkRes.info;
               userRole = currentUser.role || 'user';
               
-              // 將最新權限寫入快取，下次進來無須等待
+              Alpine.store('ui').role = userRole; 
               localStorage.setItem(cacheKey, JSON.stringify(currentUser));
 
               if (userRole === 'store' || userRole === 'admin') {
@@ -2876,9 +2260,6 @@
               } else {
                   currentNetworkId = currentUser.networkId || 'admin'; 
               }
-
-              hasAdminRights = (userRole === 'admin' || userRole === 'store');
-              currentViewMode = 'user'; 
 
               const elUserName = document.getElementById('user-name');
               if(elUserName) elUserName.textContent = '歡迎回來，' + currentUser.name;
@@ -2920,38 +2301,12 @@
                       }
                   }
 
-                  if (currentUserCard && currentUserCard['自訂名片設定']) {
-                      try { isMyCardPrivate = JSON.parse(currentUserCard['自訂名片設定']).isPrivate === true; } catch(e) {}
-                  }
-                  
                   window.initMyECard();
-
-                  const matchmakerUi = document.getElementById('matchmaker-ui');
-                  const privacyLock = document.getElementById('privacy-lock-container');
-                  const privacyToggle = document.getElementById('fate-privacy-toggle');
-                  if (privacyToggle) privacyToggle.checked = !isMyCardPrivate;
-                  if (isMyCardPrivate && !hasAdminRights) {
-                      if (matchmakerUi) matchmakerUi.classList.add('hidden');
-                      if (privacyLock) privacyLock.classList.remove('hidden');
-                  } else {
-                      if (matchmakerUi) matchmakerUi.classList.remove('hidden');
-                      if (privacyLock) privacyLock.classList.add('hidden');
-                  }
                   window.checkDatabaseStatus();
               });
 
-              // 背景確認權限後，二次確保 UI 解鎖
-              if (hasAdminRights) {
-                  const adminSwitch = document.getElementById('admin-switch-container');
-                  if (adminSwitch) adminSwitch.classList.remove('hidden');
-                  const topNavSwitch = document.getElementById('top-nav-switch');
-                  if (topNavSwitch) topNavSwitch.classList.remove('hidden');
-                  const bannerMgmtBlock = document.getElementById('details-store-banner');
-                  if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
-              }
-              if (currentUser?.role === 'admin') {
-                  const storeMgmtBlock = document.getElementById('details-store-management');
-                  if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
+              if (Alpine.store('ui').isAdmin && document.getElementById('details-store-management')?.open === false) {
+                  if (allSystemUsers.length === 0) window.loadAllUsers(); 
               }
               
           } else {
@@ -2971,7 +2326,10 @@
     }
   }
 
-  window.addEventListener('DOMContentLoaded', init);
+  // 確保等 Alpine.js 準備好再觸發我們的系統初始化
+  document.addEventListener('alpine:initialized', () => {
+      init();
+  });
 </script>
 
 </body>
