@@ -1041,7 +1041,10 @@
       }
 
       try {
-          await window.fetchAPI('updateCard', { rowId: currentUserCard.rowId, data: { '自訂名片設定': JSON.stringify(config) } }, true);
+          await window.fetchAPI('updateCard', {
+              rowId: currentUserCard.rowId,
+              data: { '自訂名片設定': JSON.stringify(config) }
+          }, true);
           currentUserCard['自訂名片設定'] = JSON.stringify(config);
           window.showToast(config.isPrivate ? '已切換為私人模式' : '✅ 已公開名片，解鎖配對功能');
 
@@ -1104,7 +1107,7 @@
               throw new Error('無法取得配對結果');
           }
       } catch(e) {
-          window.showToast('配配對失敗：' + e.message, true);
+          window.showToast('配對失敗：' + e.message, true);
       } finally {
           if (btn) { btn.innerHTML = oriHtml; btn.disabled = false; }
       }
@@ -1983,7 +1986,14 @@
                   const time = window.formatDisplayTime(act['開始時間']);
                   const fee = act['金額'] > 0 ? 'NT$ ' + act['金額'] : '免費';
                   const img = act['宣傳圖'] || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80';
-                  const desc = window.escapeJS(act['活動說明'] || '');
+                  
+                  // 修正：正確解析 \n 為 <br>，避免出現字串 \n
+                  let rawDesc = act['活動說明'] || '';
+                  const desc = String(rawDesc)
+                      .replace(/</g, '&lt;').replace(/>/g, '&gt;') // 基礎 XSS 防護
+                      .replace(/\\n/g, '<br>') // 處理字串型態的 \n
+                      .replace(/\n/g, '<br>'); // 處理真實換行符號
+                      
                   const actId = window.escapeJS(act.rowId);
                   
                   return '<div class="bg-white mb-6 flex flex-col pb-4 border-b border-slate-100 last:border-0">' +
@@ -1995,7 +2005,8 @@
                           '<h4 class="text-[16px] text-slate-800 font-bold leading-snug mb-1">' + title + '</h4>' +
                           '<div class="text-[13px] text-slate-500 mb-2">' + time + '</div>' +
                           (desc ? '<p class="text-[13px] text-slate-600 line-clamp-3 leading-relaxed mb-3">' + desc + '</p>' : '') +
-                          '<button type="button" onclick="window.userJoinActivity(\'' + actId + '\', \'' + title + '\', event)" class="mt-1 w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[14px] font-medium active:scale-95 transition-transform flex justify-center items-center gap-1">' +
+                          // 修正：報名按鈕改為綠色底、白色字
+                          '<button type="button" onclick="window.userJoinActivity(\'' + actId + '\', \'' + title + '\', event)" class="mt-1 w-full py-3 bg-[#06C755] hover:bg-green-600 text-white rounded-xl text-[14px] font-bold active:scale-95 transition-all flex justify-center items-center gap-1 shadow-sm">' +
                               '立即報名' +
                           '</button>' +
                       '</div>' +
@@ -2027,8 +2038,12 @@
           if(res && !res.error) {
               window.showToast('🎉 報名成功！');
               btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">check_circle</span> 已報名';
-              btn.classList.replace('text-slate-700', 'text-green-600');
-              btn.classList.replace('bg-slate-100', 'bg-green-50');
+              // 適應綠色按鈕的成功狀態
+              btn.classList.replace('bg-[#06C755]', 'bg-slate-200');
+              btn.classList.replace('hover:bg-green-600', 'hover:bg-slate-200');
+              btn.classList.replace('text-white', 'text-slate-500');
+              btn.classList.remove('active:scale-95');
+              btn.classList.add('cursor-not-allowed');
           } else {
               throw new Error(res.error || '報名失敗');
           }
