@@ -1219,6 +1219,7 @@
       try {
           await window.fetchAPI('updateCard', {
               rowId: currentUserCard.rowId,
+              // [AA安全防呆] 若未傳入 imgUrl，強制保留原有的名片圖檔，防止被清空
               data: { '自訂名片設定': JSON.stringify(cfg), '名片圖檔': cfg.imgUrl || currentUserCard['名片圖檔'] || '' }
           }, true);
           currentUserCard['自訂名片設定'] = JSON.stringify(cfg);
