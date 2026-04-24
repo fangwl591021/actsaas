@@ -2727,7 +2727,7 @@
 
       if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
       
-      // 1. 拔除全螢幕 Loading，立即顯示首頁與底部導航，給予使用者「秒開」的體驗
+      // 1. 立即顯示首頁
       window.goPage('home', true); 
 
       const profile = await liff.getProfile();
@@ -2735,15 +2735,46 @@
       document.getElementById('avatar').src = profile.pictureUrl || '';
       document.getElementById('avatar').classList.remove('hidden');
       
-      // 2. 立即背景發送讀取公開活動的請求 (不需等待權限驗證即可看見)
+      // ========================================================
+      // [AA局部修正] 本地快取秒開機制：繞過 GAS 10秒冷啟動的物理限制
+      // ========================================================
+      const cacheKey = 'actmaster_user_' + profile.userId;
+      const cachedData = localStorage.getItem(cacheKey);
+      if (cachedData) {
+          try {
+              const parsed = JSON.parse(cachedData);
+              currentUser = parsed;
+              userRole = currentUser.role || 'user';
+              hasAdminRights = (userRole === 'admin' || userRole === 'store');
+              
+              // 0.01 秒立刻解鎖後台按鈕
+              if (hasAdminRights) {
+                  const adminSwitch = document.getElementById('admin-switch-container');
+                  if (adminSwitch) adminSwitch.classList.remove('hidden');
+                  const topNavSwitch = document.getElementById('top-nav-switch');
+                  if (topNavSwitch) topNavSwitch.classList.remove('hidden');
+                  const bannerMgmtBlock = document.getElementById('details-store-banner');
+                  if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
+              }
+              if (userRole === 'admin') {
+                  const storeMgmtBlock = document.getElementById('details-store-management');
+                  if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
+              }
+          } catch(e) {}
+      }
+
+      // 2. 立即背景發送讀取公開活動的請求
       window.loadUserActivities();
 
-      // 3. 背景執行驗證與進階資料載入 (GAS 冷啟動在背景跑，不阻塞畫面)
+      // 3. 背景非同步驗證 (同時更新最新權限到本地快取)
       window.fetchAPI('checkUser', { userId: profile.userId }, true).then(checkRes => {
           if (checkRes && checkRes.isRegistered) {
               currentUser = checkRes.info;
               userRole = currentUser.role || 'user';
               
+              // 將最新權限寫入快取，下次進來無須等待
+              localStorage.setItem(cacheKey, JSON.stringify(currentUser));
+
               if (userRole === 'store' || userRole === 'admin') {
                   currentNetworkId = profile.userId; 
               } else {
@@ -2813,24 +2844,21 @@
                   window.checkDatabaseStatus();
               });
 
-              // 權限到位後，無縫解開後台元件的隱藏
+              // 背景確認權限後，二次確保 UI 解鎖
               if (hasAdminRights) {
                   const adminSwitch = document.getElementById('admin-switch-container');
                   if (adminSwitch) adminSwitch.classList.remove('hidden');
                   const topNavSwitch = document.getElementById('top-nav-switch');
                   if (topNavSwitch) topNavSwitch.classList.remove('hidden');
-                  
                   const bannerMgmtBlock = document.getElementById('details-store-banner');
                   if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
               }
-              
               if (currentUser?.role === 'admin') {
                   const storeMgmtBlock = document.getElementById('details-store-management');
                   if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
               }
               
           } else {
-              // 背景確認為新用戶，才切換到註冊畫面
               window.goPage('register');
           }
       }).catch(err => {
