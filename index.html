@@ -248,8 +248,8 @@
         </div>
       </details>
 
-      <!-- Box 6: 商家權限管理 (Admin Only) -->
-      <details id="details-store-management" class="hidden bg-white rounded-3xl shadow-sm border border-slate-100 mb-6 group">
+      <!-- Box 6: 商家權限管理 (Admin Only) 加入 ontoggle 自動防呆載入 -->
+      <details id="details-store-management" class="hidden bg-white rounded-3xl shadow-sm border border-slate-100 mb-6 group" ontoggle="if(this.open && allSystemUsers.length === 0) window.loadAllUsers()">
         <summary class="font-bold text-slate-800 p-5 flex items-center justify-between cursor-pointer list-none outline-none">
           <div class="flex items-center gap-2"><span class="material-symbols-outlined text-purple-500 icon-filled">storefront</span> 商家權限管理 <span class="bg-[#1e293b] text-white text-[9px] px-1.5 py-0.5 rounded-full tracking-wider font-bold ml-1">ADMIN</span></div>
           <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
@@ -795,7 +795,7 @@
 </div>
 
 <script>
-  const LIFF_ID = "2009886448-orTpVfgu"; 
+  const LIFF_ID = "2009367829-gB5q4gLt"; 
   const WORKER_URL = "https://line-engine.fangwl591021.workers.dev";
 
   // 定義用量限制 (依據角色權限)
@@ -1664,8 +1664,9 @@
       
       try {
           const res = await window.fetchAPI('getAllUsers', {}, true);
-          if (res && !res.error) {
-              allSystemUsers = res || [];
+          // 增強型陣列判斷，避免 API 回傳異常導致無法渲染
+          if (res && !res.error && Array.isArray(res)) {
+              allSystemUsers = res;
               window.renderStoreManagement();
           } else {
               container.innerHTML = '<div class="text-center py-6 text-red-400 text-xs font-bold">無法載入用戶資料</div>';
@@ -1781,6 +1782,17 @@
                 if (allSystemUsers.length === 0) window.loadAllUsers(); 
             } else {
                 if (storeMgmtBlock) storeMgmtBlock.classList.add('hidden');
+            }
+
+            // 雙重保證：進入設定頁時強制確認後台切換按鈕顯示狀態
+            const adminSwitch = document.getElementById('admin-switch-container');
+            const topNavSwitch = document.getElementById('top-nav-switch');
+            if (currentUser?.role === 'admin' || currentUser?.role === 'store') {
+                if (adminSwitch) adminSwitch.classList.remove('hidden');
+                if (topNavSwitch) topNavSwitch.classList.remove('hidden');
+            } else {
+                if (adminSwitch) adminSwitch.classList.add('hidden');
+                if (topNavSwitch) topNavSwitch.classList.add('hidden');
             }
         }
     }
