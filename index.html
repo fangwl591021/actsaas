@@ -829,7 +829,2150 @@
   </div>
 </div>
 
-<!-- 引入邏輯層 JavaScript -->
-<script src="./src/main.js"></script>
+<script>
+  const LIFF_ID = "2009886448-orTpVfgu"; 
+  const WORKER_URL = "https://line-engine.fangwl591021.workers.dev/";
+
+  // 定義用量限制 (依據角色權限)
+  window.LIMITS = {
+      admin: { activities: Infinity, cards: Infinity },
+      store: { activities: 10, cards: Infinity },
+      user:  { activities: 1, cards: 30 }
+  };
+
+  // 儲存推薦人與歸屬網段
+  window.urlRef = '';
+  window.urlNet = '';
+  let currentNetworkId = ''; // 決定當前用戶能看到哪些資料的關鍵 ID
+
+  // 裁切目標 ('general' = 名片庫, 'mycard' = 專屬名片設定)
+  window.cropTarget = 'general';
+
+  // 服務項目文字設定儲存
+  window.currentDescAlign = 'center';
+
+  // 儲存管理員撈取的全系統用戶清單
+  let allSystemUsers = [];
+
+  // ==================== 前端共用函式區 (Browser Scope) ====================
+  
+  // 安全跳脫函式：保護 Inline JS 參數，防堵含有換行、單引號等特殊字元的資料造成 SyntaxError
+  window.escapeJS = function(str) {
+      return String(str || '').replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "\\n").replace(/\r/g, "");
+  };
+
+  // 新增全域的時間格式化函式，將 ISO 轉為直覺閱讀格式
+  window.formatDisplayTime = function(val) {
+      if (!val) return '';
+      try {
+          let d = new Date(val);
+          if (isNaN(d.getTime())) {
+              return String(val).replace('T', ' ').replace('.000Z', '').substring(0, 16);
+          }
+          const pad = (n) => n.toString().padStart(2, '0');
+          return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+      } catch(e) {
+          return String(val);
+      }
+  };
+
+  window.getIconUrl = function(type) {
+    const icons = {
+      "LINE": "https://aiwe.cc/wp-content/uploads/2026/02/b75a5831fd553c7130aeafbb9783cf79.png",
+      "FB":   "https://aiwe.cc/wp-content/uploads/2026/02/3986d1fd62384c8cdaa0e7c82f2740d1.png",
+      "IG":   "https://aiwe.cc/wp-content/uploads/2026/02/a33306edcecd1ebdfd14baea6718cf23.png",
+      "YT":   "https://aiwe.cc/wp-content/uploads/2026/02/87e6f8054bd3672f2885e38bddb112e2.png",
+      "TEL":  "https://aiwe.cc/wp-content/uploads/2026/02/7254567388850a6b4d77b75208ebd4b8.png",
+      "WEB":  "https://cdn-icons-png.flaticon.com/512/1006/1006771.png"
+    };
+    return icons[type] || icons['WEB'];
+  };
+
+  window.cleanURI = function(uri) {
+      if (!uri) return '';
+      uri = uri.trim();
+      if (uri === 'http://' || uri === 'https://') return '';
+      if (!uri.match(/^(http|https|tel|mailto|line):/i)) return 'https://' + uri;
+      return uri;
+  };
+
+  let currentUser = null;
+  let currentUserProfile = null;
+  let allCards = [];
+  let currentCard = null;
+  let currentUserCard = null; 
+  let isProcessing = false;
+  let cropperInstance = null;
+  let activeCropperInstance = null;
+  let currentActiveCropTarget = '';
+  let activeBatchCount = 0;
+  
+  let userRole = 'user'; 
+  let hasAdminRights = false;
+  let currentViewMode = 'user';
+  
+  let currentECardStyle = 'v1';
+  let v1Buttons = [];
+  window.userSocials = [];
+  
+  // 我的專屬名片設定
+  let myV1Buttons = [];
+
+  window.showToast = function(msg, isError = false) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'px-4 py-3 rounded-full shadow-lg text-[13px] font-bold text-white transition-all duration-300 toast-enter flex items-center gap-2 max-w-[90%] text-center';
+      toast.classList.add(isError ? 'bg-red-500' : 'bg-slate-800');
+      toast.innerHTML = '<span class="material-symbols-outlined icon-filled text-[18px]">' + (isError ? 'error' : 'info') + '</span> ' + msg;
+      container.appendChild(toast);
+      setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(-20px)';
+          setTimeout(() => toast.remove(), 300);
+      }, 3000);
+  };
+
+  window.fetchAPI = async function(action, payload = {}, silent = false) {
+    try {
+      // 全域注入 networkId 與 role，確保後端能正確隔離資料
+      payload.networkId = currentNetworkId;
+      payload.role = userRole;
+      payload.userId = currentUserProfile?.userId;
+
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data || data; 
+    } catch (err) {
+      if(!silent) window.showToast(err.message, true);
+      return { success: false, error: err.message };
+    }
+  };
+
+  // ------------------------- 新增補齊的前端互動函式 ------------------------- //
+
+  window.shareECardToLine = async function(btnId) {
+      if (!currentCard) return window.showToast('無法取得名片資料', true);
+      const btn = document.getElementById(btnId);
+      const oriHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+          btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 準備中...';
+          btn.disabled = true;
+      }
+
+      try {
+          const config = await window.saveECardConfig(true);
+          const flexMsg = await window.fetchAPI('buildFlexMessage', { 
+              card: currentCard, 
+              config: config, 
+              referrerId: currentUserProfile.userId, // 自己作為推薦人
+              networkId: currentNetworkId            // 傳遞當前的歸屬網段
+          }, true);
+          if (flexMsg) {
+              await window.triggerFlexSharing(flexMsg, "您收到一張數位名片");
+          }
+      } catch(e) {
+          window.showToast('發送失敗：' + e.message, true);
+      } finally {
+          if (btn) { btn.innerHTML = oriHtml; btn.disabled = false; }
+      }
+  };
+
+  window.shareMyCard = async function(btn) {
+      if (!currentUserCard) {
+          window.showToast('尚未建立專屬名片，為您導向設定頁面', true);
+          window.goPage('admin-settings');
+          const detailEl = document.getElementById('details-my-ecard');
+          if(detailEl) detailEl.open = true;
+          setTimeout(() => detailEl?.scrollIntoView({behavior: 'smooth'}), 300);
+          return;
+      }
+      const oriHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-4xl text-[#06C755]">refresh</span><span class="font-bold text-slate-700">準備中...</span>';
+      btn.disabled = true;
+      try {
+          let config = {};
+          try { config = JSON.parse(currentUserCard['自訂名片設定']); } catch(e){}
+          const flexMsg = await window.fetchAPI('buildFlexMessage', { 
+              card: currentUserCard, 
+              config: config, 
+              referrerId: currentUserProfile.userId, // 傳遞自己作為推薦人
+              networkId: currentNetworkId
+          }, true);
+          if (flexMsg) {
+              await window.triggerFlexSharing(flexMsg, "您收到一張數位名片");
+          }
+      } catch(e) {
+          window.showToast('發送失敗：' + e.message, true);
+      } finally {
+          if (btn) { btn.innerHTML = oriHtml; btn.disabled = false; }
+      }
+  };
+
+  window.sendClaimInvitation = async function() {
+      if (!currentCard) return;
+      const link = "https://liff.line.me/" + LIFF_ID + "?claim=" + currentCard.rowId;
+      const text = '您好！這是為您建立的數位名片：\n' + link + '\n請點擊連結認領並管理您的專屬名片。';
+      if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
+      try {
+          await liff.shareTargetPicker([{ type: "text", text: text }]);
+          window.showToast('✅ 認領邀請已發送');
+      } catch(e) {
+          window.showToast('發送失敗', true);
+      }
+  };
+
+  window.toggleFatePrivacy = async function(forceOpen = false) {
+      if (!currentUserCard) return window.showToast('找不到您的名片資料', true);
+      let config = {};
+      try { config = JSON.parse(currentUserCard['自訂名片設定']); } catch(e){}
+
+      const toggleEl = document.getElementById('fate-privacy-toggle');
+      if (forceOpen) {
+          config.isPrivate = false;
+          if(toggleEl) toggleEl.checked = true;
+      } else {
+          config.isPrivate = !toggleEl.checked;
+      }
+
+      try {
+          await window.fetchAPI('updateCard', { rowId: currentUserCard.rowId, data: { '自訂名片設定': JSON.stringify(config) } }, true);
+          currentUserCard['自訂名片設定'] = JSON.stringify(config);
+          window.showToast(config.isPrivate ? '已切換為私人模式' : '✅ 已公開名片，解鎖配對功能');
+
+          if (!config.isPrivate) {
+              document.getElementById('privacy-lock-container').classList.add('hidden');
+              document.getElementById('matchmaker-ui').classList.remove('hidden');
+          } else if (!hasAdminRights) {
+              document.getElementById('privacy-lock-container').classList.remove('hidden');
+              document.getElementById('matchmaker-ui').classList.add('hidden');
+          }
+      } catch(e) {
+          window.showToast('狀態更新失敗：' + e.message, true);
+          if(toggleEl) toggleEl.checked = !config.isPrivate;
+      }
+  };
+
+  window.startMatchmaking = async function() {
+      const query = document.getElementById('match-query').value.trim();
+      if (!query) return window.showToast('請輸入您的配對需求', true);
+
+      const btn = document.getElementById('btn-match');
+      const oriHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> AI 正在尋找...';
+      btn.disabled = true;
+
+      try {
+          const pool = allCards.filter(c => {
+              if (c.rowId === currentUserCard?.rowId) return false;
+              let isPriv = false;
+              try { isPriv = JSON.parse(c['自訂名片設定']||'{}').isPrivate; } catch(e){}
+              return !isPriv;
+          });
+
+          const res = await window.fetchAPI('matchmakeContacts', {
+              currentUser: currentUser,
+              query: query,
+              contacts: pool.map(c => ({ rowId: c.rowId, Name: c['姓名'], Company: c['公司名稱'], Title: c['職稱'], Tags: (c['個性']||'') + (c['興趣']||'') + (c['事業']||'') }))
+          }, true);
+
+          if (res && Array.isArray(res)) {
+              const resultsList = document.getElementById('results-list');
+              if (res.length === 0) {
+                  resultsList.innerHTML = '<div class="text-center py-6 text-slate-500">目前沒有合適的人選</div>';
+              } else {
+                  resultsList.innerHTML = res.map(match => {
+                      const c = allCards.find(card => String(card.rowId) === String(match.rowId));
+                      if (!c) return '';
+                      return '<div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-2">' +
+                          '<div class="flex justify-between items-center">' +
+                              '<div class="font-black text-slate-800">' + window.escapeJS(c['姓名'] || '未知') + ' <span class="text-[12px] font-medium text-slate-500 ml-1">' + window.escapeJS(c['公司名稱'] || '') + '</span></div>' +
+                              '<div class="bg-[#06C755] text-white px-2 py-0.5 rounded text-[11px] font-bold">契合度 ' + match.score + '%</div>' +
+                          '</div>' +
+                          '<div class="text-[13px] text-slate-600">' + window.escapeJS(match.reason) + '</div>' +
+                          '<button type="button" onclick="window.openCardDetailById(\'' + window.escapeJS(match.rowId) + '\')" class="mt-2 w-full py-2 bg-white text-blue-600 rounded-lg font-bold text-[13px] border border-blue-100 active:scale-95 transition-transform">查看名片</button>' +
+                      '</div>';
+                  }).join('');
+              }
+              document.getElementById('match-results').classList.remove('hidden');
+          } else {
+              throw new Error('無法取得配對結果');
+          }
+      } catch(e) {
+          window.showToast('配配對失敗：' + e.message, true);
+      } finally {
+          if (btn) { btn.innerHTML = oriHtml; btn.disabled = false; }
+      }
+  };
+
+  window.closeReadOnlyCard = function() {
+      document.getElementById('readonly-card-modal').classList.add('hidden');
+  };
+
+  window.shareReadOnlyCardToLine = async function(btn) {
+      if (!window.roCardData) return;
+      const oriHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 準備中...';
+      btn.disabled = true;
+      try {
+          let config = {};
+          try { config = JSON.parse(window.roCardData['自訂名片設定']); } catch(e){}
+          const flexMsg = await window.fetchAPI('buildFlexMessage', { 
+              card: window.roCardData, 
+              config: config, 
+              referrerId: currentUserProfile.userId,
+              networkId: currentNetworkId
+          }, true);
+          if (flexMsg) await window.triggerFlexSharing(flexMsg, "您收到一張數位名片");
+      } catch (e) {
+          window.showToast('發送失敗：' + e.message, true);
+      } finally {
+          if (btn) { btn.innerHTML = oriHtml; btn.disabled = false; }
+      }
+  };
+
+  window.unpublishActivity = async function(actId, btnEl) {
+      if(!confirm('確定要下架此活動嗎？相關的所有報名資料也將一併移除。')) return;
+      const oriHtml = btnEl.innerHTML;
+      btnEl.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span>';
+      btnEl.disabled = true;
+      
+      try {
+          const res = await window.fetchAPI('removeAct', { activityId: actId }, true); 
+          if (res && !res.error) {
+              window.showToast('✅ 活動已成功下架！');
+              window.loadAdminActivities(); 
+              window.loadUserActivities(); 
+          } else {
+              throw new Error(res.error || '下架失敗');
+          }
+      } catch(e) {
+          window.showToast('⚠️ ' + e.message, true);
+          btnEl.innerHTML = oriHtml;
+          btnEl.disabled = false;
+      }
+  };
+
+  // ------------------------------------------------------------------------- //
+
+  window.setDescAlign = function(align) {
+      window.currentDescAlign = align;
+      ['start', 'center', 'end'].forEach(a => {
+          const btn = document.getElementById('align-' + a);
+          if (!btn) return;
+          if (a === align) {
+              btn.className = "w-7 h-7 rounded flex items-center justify-center bg-white shadow-sm text-blue-600 transition-all";
+          } else {
+              btn.className = "w-7 h-7 rounded flex items-center justify-center text-slate-500 hover:bg-white hover:shadow-sm transition-all";
+          }
+      });
+      window.updateECardPreview();
+  };
+
+  window.updateHomeBanner = function() {
+      let bannerUrl = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80';
+      let ytUrl = '';
+      
+      const ownerCard = allCards.find(c => String(c['LINE ID']).trim() === currentNetworkId);
+      if (ownerCard && ownerCard['自訂名片設定']) {
+          try {
+              const cfg = JSON.parse(ownerCard['自訂名片設定']);
+              if (cfg.homeBanner) bannerUrl = cfg.homeBanner;
+              if (cfg.homeYoutube) ytUrl = cfg.homeYoutube;
+          } catch(e){}
+      }
+      const bannerImg = document.getElementById('home-main-banner');
+      if (bannerImg) bannerImg.src = bannerUrl;
+      
+      const ytContainer = document.getElementById('home-youtube-container');
+      const ytIframe = document.getElementById('home-youtube-iframe');
+      if (ytContainer && ytIframe) {
+          if (ytUrl) {
+              const match = ytUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+              const videoId = match ? match[1] : null;
+              if (videoId) {
+                  ytIframe.src = 'https://www.youtube.com/embed/' + videoId + '?rel=0&modestbranding=1';
+                  ytContainer.classList.remove('hidden');
+              } else {
+                  ytContainer.classList.add('hidden');
+              }
+          } else {
+              ytContainer.classList.add('hidden');
+              ytIframe.src = '';
+          }
+      }
+  };
+
+  window.saveStoreBanner = async function(event) {
+      const btn = event.currentTarget || document.getElementById('btn-save-store-banner');
+      
+      if (!currentUserCard && currentUserProfile) {
+          currentUserCard = allCards.find(c => String(c['LINE ID']).trim() === currentUserProfile.userId || String(c.userId).trim() === currentUserProfile.userId);
+      }
+
+      if (!currentUserCard) {
+          // 自動為 Store 用戶建立一份基礎名片，避免後續儲存報錯阻擋體驗
+          window.showToast('正在初始化您的商家專屬檔案...', false);
+          try {
+              const newCardPayload = {
+                  userId: currentUserProfile.userId,
+                  姓名: currentUser?.name || '商家代表',
+                  手機號碼: currentUser?.phone || '',
+                  服務項目: currentUser?.industry || '',
+                  自訂名片設定: '{}',
+                  名片圖檔: ''
+              };
+              const res = await window.fetchAPI('saveCard', newCardPayload, true);
+              if (res && res.rowId) {
+                  newCardPayload.rowId = res.rowId;
+                  allCards.unshift(newCardPayload);
+                  currentUserCard = newCardPayload;
+              } else {
+                  throw new Error('無法初始化檔案');
+              }
+          } catch(e) {
+              return window.showToast('⚠️ 找不到綁定紀錄。請先至「我的專屬名片」點擊生成', true);
+          }
+      }
+
+      const oriHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 儲存中...';
+      btn.disabled = true;
+
+      let cfg = {};
+      try { cfg = JSON.parse(currentUserCard['自訂名片設定'] || '{}'); } catch(e){}
+      
+      const bannerInput = document.getElementById('input-store-banner');
+      if (bannerInput) cfg.homeBanner = bannerInput.value.trim();
+      
+      const ytInput = document.getElementById('input-store-youtube');
+      if (ytInput) cfg.homeYoutube = ytInput.value.trim();
+
+      try {
+          await window.fetchAPI('updateCard', {
+              rowId: currentUserCard.rowId,
+              data: { '自訂名片設定': JSON.stringify(cfg), '名片圖檔': cfg.imgUrl || currentUserCard['名片圖檔'] || '' }
+          }, true);
+          currentUserCard['自訂名片設定'] = JSON.stringify(cfg);
+          window.showToast('✅ 首頁 Banner 與影片已更新！');
+          window.updateHomeBanner();
+      } catch(e) {
+          window.showToast('⚠️ 儲存失敗：' + e.message, true);
+      } finally {
+          btn.innerHTML = oriHtml;
+          btn.disabled = false;
+      }
+  };
+
+  // =============== 【QR Code 顯示函式】 ===============
+  window.showMyQRCode = function() {
+      if (!currentUserCard) {
+          window.showToast('請先建立專屬名片', true);
+          return;
+      }
+      const modal = document.getElementById('qr-modal');
+      const img = document.getElementById('qr-code-img');
+      const loading = document.getElementById('qr-loading');
+      
+      modal.classList.remove('hidden');
+      img.classList.add('hidden');
+      loading.classList.remove('hidden');
+      
+      // 包含推薦人與網段追蹤參數
+      let badgeUrl = 'https://liff.line.me/' + LIFF_ID + '?shareCardId=' + currentUserCard.rowId;
+      badgeUrl += '&ref=' + currentUserProfile.userId;
+      badgeUrl += '&net=' + currentNetworkId;
+      
+      // 採用穩定且免授權的 QuickChart API
+      const qrUrl = 'https://quickchart.io/qr?text=' + encodeURIComponent(badgeUrl) + '&size=300&margin=2';
+      
+      img.onload = () => {
+          loading.classList.add('hidden');
+          img.classList.remove('hidden');
+      };
+      img.src = qrUrl;
+  };
+
+  // =============== 【名片處理相關函式】 ===============
+  
+  window.openCardDetailById = function(rowId) {
+      const card = allCards.find(c => String(c.rowId) === String(rowId));
+      if (card) window.openCardDetail(card);
+  };
+
+  window.openCardDetail = function(card) {
+    currentCard = card;
+    const fields = [
+      { label: '姓名', key: '姓名' }, { label: '英文名', key: '英文名' },
+      { label: '職稱', key: '職稱' }, { label: '公司', key: '公司名稱' },
+      { label: '手機', key: '手機號碼' }, { label: '公司電話', key: '公司電話' },
+      { label: 'Email', key: '電子郵件' }, { label: '網址', key: '公司網址' },
+      { label: '地址', key: '公司地址' }, { label: '部門', key: '部門' },
+      { label: '統編', key: '統一編號' }, { label: '分機', key: '分機' },
+      { label: '傳真', key: '傳真' }, { label: '社群', key: '社群帳號' },
+      { label: '服務項目', key: '服務項目' }, { label: '備註', key: '建檔人/備註' }
+    ];
+
+    document.getElementById('detail-fields').innerHTML = fields
+      .filter(f => card[f.key] !== undefined && card[f.key] !== null && card[f.key] !== '')
+      .map(f => {
+        const val = window.escapeJS(String(card[f.key]).replaceAll(String.fromCharCode(8203), '').replaceAll("'", ""));
+        if(!val) return '';
+        const isLink = f.key === '公司網址' || f.key === '電子郵件';
+        const href = f.key === '電子郵件' ? 'mailto:' + val : (val.startsWith('http') ? val : 'https://' + val);
+        const valueHtml = isLink ? '<a href="' + href + '" class="text-blue-500 font-bold underline truncate block">' + val + '</a>' : '<span class="font-medium text-slate-700 break-all">' + val + '</span>';
+        return '<div class="bg-slate-50 p-3 rounded-xl flex flex-col gap-1 border border-slate-100"><span class="text-[11px] font-black text-slate-400 uppercase tracking-wide">' + f.label + '</span>' + valueHtml + '</div>';
+      }).join('') || '<div class="text-center py-6 text-slate-400 font-medium">尚無資料，請點擊「編輯內容」補充</div>';
+
+    fields.forEach(f => {
+      const el = document.getElementById('edit-' + f.key);
+      if (el) el.value = String(card[f.key] || '').replaceAll(String.fromCharCode(8203), '').replaceAll("'", "");
+    });
+
+    try {
+      const cfg = card['自訂名片設定'] ? JSON.parse(card['自訂名片設定']) : {};
+      currentECardStyle = 'v1'; 
+      v1Buttons = cfg.buttons || [{l:'加為好友', u:'', c:'#06C755'}];
+      document.getElementById('v1-img-url').value = cfg.imgUrl || card['名片圖檔'] || '';
+      
+      window.setDescAlign(cfg.descAlign || 'center');
+      const colorInput = document.getElementById('edit-desc-color');
+      if (colorInput) colorInput.value = cfg.descColor || '#666666';
+
+    } catch(e) {
+      currentECardStyle = 'v1'; 
+      v1Buttons = [{l:'加為好友', u:'', c:'#06C755'}]; 
+      document.getElementById('v1-img-url').value = card['名片圖檔'] || '';
+      window.setDescAlign('center');
+      const colorInput = document.getElementById('edit-desc-color');
+      if (colorInput) colorInput.value = '#666666';
+    }
+
+    window.switchTab('info');
+    window.goPage('card-detail');
+  };
+
+  window.switchTab = function(tab) {
+    ['info','edit','ecard'].forEach(t => {
+      document.getElementById('tab-content-' + t).classList.toggle('hidden', t !== tab);
+      const btn = document.getElementById('tab-' + t);
+      if(t === tab) {
+          btn.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+          btn.classList.remove('text-slate-400', 'border-transparent');
+      } else {
+          btn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+          btn.classList.add('text-slate-400', 'border-transparent');
+      }
+    });
+    if (tab === 'ecard') {
+      window.renderECardSettings();
+      window.updateECardPreview();
+    }
+  };
+
+  window.saveCardEdit = async function() {
+    const btn = document.getElementById('btn-save');
+    btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 儲存中...'; 
+    btn.disabled = true;
+    const fields = ['姓名','英文名','職稱','部門','公司名稱','統一編號','手機號碼','公司電話','分機','傳真','電子郵件','公司網址','社群帳號','公司地址','服務項目','建檔人/備註'];
+    const updated = { ...currentCard };
+    fields.forEach(f => {
+      const el = document.getElementById('edit-' + f);
+      if (el) updated[f] = el.value;
+    });
+
+    let cfg = {};
+    try { cfg = JSON.parse(currentCard['自訂名片設定'] || '{}'); } catch(e){}
+    cfg.descAlign = window.currentDescAlign;
+    const colorInput = document.getElementById('edit-desc-color');
+    cfg.descColor = colorInput ? colorInput.value : '#666666';
+    updated['自訂名片設定'] = JSON.stringify(cfg);
+    
+    try {
+        await window.fetchAPI('updateCard', { rowId: currentCard.rowId, data: updated }, true);
+        currentCard = { ...currentCard, ...updated };
+        window.showToast('✅ 資料已更新！');
+        window.openCardDetail(currentCard);
+        await window.loadAllData();
+    } catch(e) {
+        window.showToast('⚠️ 儲存失敗：' + e.message, true);
+    } finally {
+        btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> 儲存變更'; 
+        btn.disabled = false;
+    }
+  };
+
+  window.deleteCard = async function() {
+    if (!confirm('確定要永久刪除這張名片嗎？')) return;
+    try {
+        await window.fetchAPI('deleteCard', { rowId: currentCard.rowId }, true);
+        window.showToast('🗑 名片已刪除');
+        await window.loadAllData();
+        window.goPage('card');
+    } catch(e) {
+        window.showToast('⚠️ 刪除失敗：' + e.message, true);
+    }
+  };
+
+  window.renderECardSettings = function() {
+    document.getElementById('v1-buttons-list').innerHTML = v1Buttons.map((btn, i) =>
+      '<div class="flex gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-100">' +
+      '<input type="color" class="w-9 h-9 p-0.5 bg-white border border-slate-200 rounded-lg cursor-pointer shrink-0 shadow-sm" title="設定按鈕顏色" value="' + (btn.c || '#06C755') + '" onchange="v1Buttons[' + i + '].c=this.value;window.updateECardPreview()">' +
+      '<input class="flex-1 w-full min-w-0 bg-white border-none rounded-lg p-2.5 text-[13px] font-bold shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none" placeholder="按鈕文字" value="' + window.escapeJS(btn.l||'') + '" oninput="v1Buttons[' + i + '].l=this.value;window.updateECardPreview()">' +
+      '<input class="flex-[1.5] w-full min-w-0 bg-white border-none rounded-lg p-2.5 text-[12px] font-mono shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none" placeholder="https://" value="' + window.escapeJS(btn.u||'') + '" oninput="v1Buttons[' + i + '].u=this.value">' +
+      '<button type="button" onclick="v1Buttons.splice(' + i + ',1);window.renderECardSettings();window.updateECardPreview()" class="text-red-400 bg-red-50 w-9 h-9 rounded-lg flex items-center justify-center shrink-0 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">delete</span></button></div>'
+    ).join('');
+  };
+
+  window.addV1Button = function() { v1Buttons.push({l:'新按鈕',u:'',c:'#06C755'}); window.renderECardSettings(); };
+
+  window.getPreviewHTML = function(card, style, configParams) {
+    const name = window.escapeJS(card['姓名'] || '姓名');
+    const title = window.escapeJS(card['職稱'] || '');
+    const company = window.escapeJS(card['公司名稱'] || '');
+    const service = window.escapeJS(card['服務項目'] || card['職稱'] || card['公司名稱'] || '');
+    
+    const imgUrl = configParams.imgUrl || 'https://images.unsplash.com/photo-1616628188550-808682f3926d?w=800&q=80';
+    const buttons = configParams.buttons || []; 
+
+    const btnsHtml = buttons.map(btn => '<div class="block py-3 rounded-xl text-white text-center text-[14px] font-black mb-2.5 shadow-sm" style="background:' + (btn.c||'#06C755') + '">' + window.escapeJS(btn.l||'按鈕') + '</div>').join('');
+    const heroImageHtml = '<div class="relative aspect-[20/13] bg-slate-100 bg-cover bg-center" style="background-image:url(' + imgUrl + ');"><div class="absolute top-4 left-4 bg-[#FF0000] text-white text-[11px] font-black px-3 py-1 rounded-full shadow-sm tracking-widest">分享</div></div>';
+    
+    const alignMap = { 'start': 'left', 'center': 'center', 'end': 'right' };
+    const textAlign = alignMap[configParams.descAlign || 'center'] || 'center';
+    const textColor = configParams.descColor || '#666666';
+
+    return '<div class="bg-white pb-6 flex flex-col w-full h-full">' +
+          heroImageHtml +
+          '<div class="p-6 text-center">' +
+              '<div class="font-black text-[22px] text-slate-800 leading-tight mb-2">' + name + '</div>' +
+              '<div class="text-[14px] font-medium whitespace-pre-wrap" style="color: ' + textColor + '; text-align: ' + textAlign + ';">' + service + '</div>' +
+          '</div>' +
+          (btnsHtml ? '<div class="px-6">' + btnsHtml + '</div>' : '') +
+      '</div>';
+  };
+
+  window.updateECardPreview = function() {
+    if (!currentCard) return;
+    const area = document.getElementById('ecard-preview-area');
+    const colorInput = document.getElementById('edit-desc-color');
+    let configParams = {
+      imgUrl: document.getElementById('v1-img-url').value || 'https://images.unsplash.com/photo-1616628188550-808682f3926d?w=800&q=80',
+      buttons: v1Buttons,
+      descAlign: window.currentDescAlign || 'center',
+      descColor: colorInput ? colorInput.value : '#666666'
+    };
+    area.innerHTML = window.getPreviewHTML(currentCard, currentECardStyle, configParams);
+  };
+
+  window.saveECardConfig = async function(isSilent = false) {
+    const btn = document.getElementById('btn-ecard-save');
+    if (!isSilent && btn) { btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 儲存中'; btn.disabled = true; }
+    
+    let prevIsPrivate = false;
+    if (currentCard['自訂名片設定']) {
+        try { prevIsPrivate = JSON.parse(currentCard['自訂名片設定']).isPrivate || false; } catch(e){}
+    }
+
+    v1Buttons.forEach(b => { b.u = window.cleanURI(b.u); });
+    
+    const colorInput = document.getElementById('edit-desc-color');
+    const config = {
+      cardType: 'v1', 
+      imgUrl: document.getElementById('v1-img-url').value,
+      title: currentCard['姓名'],
+      desc: currentCard['服務項目'] || currentCard['職稱'],
+      buttons: v1Buttons,
+      isPrivate: prevIsPrivate,
+      descAlign: window.currentDescAlign || 'center',
+      descColor: colorInput ? colorInput.value : '#666666'
+    };
+    
+    try {
+        await window.fetchAPI('updateCard', {
+            rowId: currentCard.rowId,
+            data: { '自訂名片設定': JSON.stringify(config), '名片圖檔': config.imgUrl || '' }
+        }, true);
+        currentCard['自訂名片設定'] = JSON.stringify(config);
+        currentCard['名片圖檔'] = config.imgUrl || '';
+        if (!isSilent) window.showToast('✅ 數位名片設定已儲存！');
+    } catch(e) {
+        if (!isSilent) window.showToast('⚠️ 儲存失敗：' + e.message, true);
+        else throw e;
+    } finally {
+        if (!isSilent && btn) { btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> 儲存'; btn.disabled = false; }
+    }
+    return config;
+  };
+
+  window.triggerFlexSharing = async function(flexContents, altText, successMsg = '🚀 數位名片已成功轉發！') {
+      if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
+      try {
+          const message = { type: "flex", altText: altText || "您收到一張數位名片", contents: flexContents };
+          const res = await liff.shareTargetPicker([message]);
+          if (res) {
+              window.showToast(successMsg);
+              setTimeout(() => { if (liff.isInClient()) liff.closeWindow(); }, 1500);
+          } else {
+              window.showToast('已取消傳送', true);
+          }
+      } catch (error) {
+          if (error.message && error.message.includes('not allowed')) {
+              window.showToast("⚠️ 系統權限已更新！即將為您重新登入...", true);
+              setTimeout(() => { liff.logout(); window.location.reload(); }, 2000);
+          } else {
+              let errMsg = error.message || JSON.stringify(error);
+              if (errMsg === '{}') errMsg = 'LINE 驗證不通過，請檢查連結是否皆為有效網址';
+              window.showToast('發送發生錯誤: ' + errMsg, true);
+          }
+      }
+  };
+
+  window.renderCardList = function(cards) {
+      const container = document.getElementById('card-list');
+      if (!container) return;
+      
+      container.innerHTML = cards.length === 0
+        ? '<div class="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200"><span class="material-symbols-outlined text-4xl text-slate-300 mb-2">inventory_2</span><p class="text-slate-400 font-bold text-sm">找不到名片</p></div>'
+        : cards.map((c, i) =>
+            '<div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between cursor-pointer active:bg-slate-50 transition-colors mb-3 animate-in fade-in" style="animation-delay: ' + (i*30) + 'ms" onclick="window.openCardDetailById(\'' + window.escapeJS(c.rowId) + '\')">' +
+                '<div class="flex items-center gap-3">' +
+                    '<div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-black text-lg shrink-0 border border-blue-100">' + (window.escapeJS(c['姓名']?.[0]) || '未') + '</div>' +
+                    '<div>' +
+                        '<p class="font-black text-slate-800">' + window.escapeJS(c['姓名']||'未知') + '</p>' +
+                        '<p class="text-[12px] text-slate-500 font-medium">' + window.escapeJS(c['公司名稱']||'自由工作者') + (c['職稱'] ? ' · ' + window.escapeJS(c['職稱']) : '') + '</p>' +
+                    '</div>' +
+                '</div>' +
+                '<span class="material-symbols-outlined text-slate-300">chevron_right</span>' +
+            '</div>'
+          ).join('');
+  };
+
+  window.filterCards = function() {
+      const query = document.getElementById('search-card-input').value.toLowerCase().trim();
+      if (!query) {
+          window.renderCardList(allCards);
+          return;
+      }
+      const filtered = allCards.filter(c => {
+          const name = String(c['姓名'] || '').toLowerCase();
+          const comp = String(c['公司名稱'] || '').toLowerCase();
+          const phone1 = String(c['手機號碼'] || '').toLowerCase();
+          const phone2 = String(c['公司電話'] || '').toLowerCase();
+          const title = String(c['職稱'] || '').toLowerCase();
+          return name.includes(query) || comp.includes(query) || phone1.includes(query) || phone2.includes(query) || title.includes(query);
+      });
+      window.renderCardList(filtered);
+  };
+
+  window.loadAllData = async function() {
+    const cardsRes = await window.fetchAPI('getCardContacts', {}, true);
+    if (cardsRes && !cardsRes.error) {
+      allCards = (cardsRes || []).reverse();
+      window.renderCardList(allCards);
+      window.updateHomeBanner();
+    }
+  };
+
+  window.checkDatabaseStatus = function() {
+      if (allCards.length === 0) return;
+      const missingCount = allCards.filter(c => !c['個性'] || String(c['個性']).trim() === '' || String(c['個性']) === '待分析').length;
+      if(document.getElementById('total-count')) document.getElementById('total-count').innerText = allCards.length;
+      if(document.getElementById('missing-count')) document.getElementById('missing-count').innerText = missingCount;
+  };
+  
+  window.syncOldTags = async function(forceAll = false) {
+      const targetContacts = forceAll ? allCards : allCards.filter(c => !c['個性'] || String(c['個性']).trim() === '' || String(c['個性']) === '待分析' || String(c['個性']) === 'undefined');
+      if (targetContacts.length === 0) return window.showToast(forceAll ? '目前無名片資料' : '目前所有名片皆已包含標籤，無需補漏');
+      if (!confirm(forceAll ? '確定要強制重新運算全庫名片的命理標籤嗎？(此操作會覆蓋所有舊標籤)' : '系統發現缺乏標籤的名片。是否立即啟動 AI 批次補漏？')) return;
+
+      const btnSync = document.getElementById('btn-sync-tags');
+      const btnForce = document.getElementById('btn-force-recalc');
+      if(btnSync) btnSync.classList.add('pointer-events-none', 'opacity-50');
+      if(btnForce) btnForce.classList.add('pointer-events-none', 'opacity-50');
+      
+      const statusEl = document.getElementById('sync-status');
+      let successCount = 0;
+      
+      for (let i = 0; i < targetContacts.length; i++) {
+          const c = targetContacts[i];
+          if(statusEl) statusEl.innerHTML = '<span class="material-symbols-outlined animate-spin text-primary text-[14px] align-middle">refresh</span> 正在' + (forceAll?'重算':'同步') + ' <b>' + window.escapeJS(c['姓名'] || '未知') + '</b> (' + (i + 1) + '/' + targetContacts.length + ')...';
+          try {
+              const newTags = await window.fetchAPI('calculateFateTags', { Name: c['姓名'], Mobile: String(c['手機號碼'] || c['公司電話'] || '').replace(/[^0-9+]/g, ''), Birthday: c['生日'], Company: c['公司名稱'], Title: c['職稱'] }, true);
+              if (newTags && !newTags.error) {
+                  const updateData = { '個性': newTags.Personality || '待分析', '興趣': newTags.Hobbies || '待分析', '財運': newTags.Wealth || '待分析', '健康': newTags.Health || '待分析', '事業': newTags.Career || '待分析' };
+                  await window.fetchAPI('updateCard', { rowId: c.rowId, data: updateData }, true);
+                  c['個性'] = updateData['個性']; c['興趣'] = updateData['興趣']; c['財運'] = updateData['財運']; c['健康'] = updateData['健康']; c['事業'] = updateData['事業'];
+                  successCount++;
+              }
+          } catch (err) { window.showToast('⚠️ 處理「' + window.escapeJS(c['姓名'] || '未知') + '」時發生錯誤', true); }
+          await new Promise(r => setTimeout(r, 1000));
+      }
+
+      if(btnSync) btnSync.classList.remove('pointer-events-none', 'opacity-50');
+      if(btnForce) btnForce.classList.remove('pointer-events-none', 'opacity-50');
+      window.checkDatabaseStatus();
+      if (successCount > 0) window.showToast('✅ 作業結束！成功' + (forceAll?'重算':'補漏') + ' ' + successCount + ' 張名片。');
+  };
+
+  window.initMyECard = function() {
+      const emptyState = document.getElementById('my-ecard-empty-state');
+      const editState = document.getElementById('my-ecard-edit-state');
+
+      if (currentUserCard) {
+          if (emptyState) emptyState.classList.add('hidden');
+          if (editState) editState.classList.remove('hidden');
+
+          try {
+              const cfg = JSON.parse(currentUserCard['自訂名片設定'] || '{}');
+              myV1Buttons = cfg.buttons || [{l:'加為好友', u:'https://line.me/R/', c:'#06C755'}];
+              document.getElementById('my-v1-img-url').value = cfg.imgUrl || currentUserCard['名片圖檔'] || '';
+          } catch(e) {
+              myV1Buttons = [{l:'加為好友', u:'https://line.me/R/', c:'#06C755'}];
+              document.getElementById('my-v1-img-url').value = currentUserCard['名片圖檔'] || '';
+          }
+          window.renderMyECardSettings();
+          window.updateMyECardPreview();
+      } else {
+          if (emptyState) emptyState.classList.remove('hidden');
+          if (editState) editState.classList.add('hidden');
+      }
+  };
+
+  window.generateCardFromProfile = async function(event) {
+      const btn = event.currentTarget;
+      const oriHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 生成中...';
+      btn.disabled = true;
+      
+      try {
+          const defaultBtns = [
+              {l:'撥打電話', u:'tel:' + (currentUser?.phone || '').replace(/[^0-9+]/g, ''), c:'#06C755'},
+              {l:'加為好友', u:'https://line.me/R/', c:'#3b82f6'}
+          ];
+          const config = {
+              cardType: 'v1',
+              imgUrl: currentUserProfile?.pictureUrl || '',
+              title: currentUser?.name || '我的名片',
+              desc: currentUser?.industry || '商務人士',
+              buttons: defaultBtns,
+              isPrivate: false,
+              descAlign: 'center',
+              descColor: '#666666'
+          };
+
+          const newCardPayload = {
+              userId: currentUserProfile.userId,
+              姓名: currentUser?.name || '',
+              手機號碼: currentUser?.phone || '',
+              服務項目: currentUser?.industry || '',
+              自訂名片設定: JSON.stringify(config),
+              名片圖檔: config.imgUrl || ''
+          };
+          
+          const res = await window.fetchAPI('saveCard', newCardPayload, true);
+          
+          if (res && res.rowId) {
+              window.showToast('✅ 專屬名片生成成功！');
+              newCardPayload.rowId = res.rowId;
+              allCards.unshift(newCardPayload);
+              currentUserCard = newCardPayload;
+              window.initMyECard();
+              window.renderCardList(allCards);
+          } else {
+              throw new Error('建立失敗');
+          }
+      } catch(e) {
+          window.showToast('⚠️ 生成失敗：' + e.message, true);
+          btn.innerHTML = oriHtml;
+          btn.disabled = false;
+      }
+  };
+
+  window.renderMyECardSettings = function() {
+    document.getElementById('my-v1-buttons-list').innerHTML = myV1Buttons.map((btn, i) =>
+      '<div class="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200">' +
+      '<input type="color" class="w-9 h-9 p-0.5 bg-white border border-slate-200 rounded-lg cursor-pointer shrink-0 shadow-sm" title="設定按鈕顏色" value="' + (btn.c || '#06C755') + '" onchange="myV1Buttons[' + i + '].c=this.value;window.updateMyECardPreview()">' +
+      '<input class="flex-1 w-full min-w-0 bg-slate-50 border-none rounded-lg p-2.5 text-[13px] font-bold shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none" placeholder="按鈕文字" value="' + window.escapeJS(btn.l||'') + '" oninput="myV1Buttons[' + i + '].l=this.value;window.updateMyECardPreview()">' +
+      '<input class="flex-[1.5] w-full min-w-0 bg-slate-50 border-none rounded-lg p-2.5 text-[12px] font-mono shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none" placeholder="https://" value="' + window.escapeJS(btn.u||'') + '" oninput="myV1Buttons[' + i + '].u=this.value">' +
+      '<button type="button" onclick="myV1Buttons.splice(' + i + ',1);window.renderMyECardSettings();window.updateMyECardPreview()" class="text-red-400 bg-red-50 w-9 h-9 rounded-lg flex items-center justify-center shrink-0 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">delete</span></button></div>'
+    ).join('');
+  };
+
+  window.addMyV1Button = function() { myV1Buttons.push({l:'新按鈕',u:'',c:'#06C755'}); window.renderMyECardSettings(); };
+
+  window.updateMyECardPreview = function() {
+      const area = document.getElementById('my-ecard-preview-area');
+      if (!area) return;
+      let configParams = {
+          imgUrl: document.getElementById('my-v1-img-url').value || 'https://images.unsplash.com/photo-1616628188550-808682f3926d?w=800&q=80',
+          buttons: myV1Buttons,
+          descAlign: 'center',
+          descColor: '#666666'
+      };
+      
+      if (currentUserCard && currentUserCard['自訂名片設定']) {
+         try {
+             let c = JSON.parse(currentUserCard['自訂名片設定']);
+             configParams.descAlign = c.descAlign || 'center';
+             configParams.descColor = c.descColor || '#666666';
+         } catch(e){}
+      }
+      
+      let mockCard = currentUserCard || {
+          '姓名': currentUser?.name || '未知',
+          '服務項目': currentUser?.industry || '商務人士',
+      };
+      area.innerHTML = window.getPreviewHTML(mockCard, 'v1', configParams);
+  };
+
+  window.saveMyECardConfig = async function() {
+      if (!currentUserCard) return; 
+      
+      const btn = document.getElementById('btn-save-my-ecard');
+      btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 儲存中...';
+      btn.disabled = true;
+
+      myV1Buttons.forEach(b => { b.u = window.cleanURI(b.u); });
+
+      let prevAlign = 'center', prevColor = '#666666';
+      if (currentUserCard['自訂名片設定']) {
+          try {
+             let c = JSON.parse(currentUserCard['自訂名片設定']);
+             prevAlign = c.descAlign || 'center';
+             prevColor = c.descColor || '#666666';
+          } catch(e){}
+      }
+
+      const config = {
+          cardType: 'v1',
+          imgUrl: document.getElementById('my-v1-img-url').value,
+          title: currentUserCard['姓名'] || currentUser?.name || '我的名片',
+          desc: currentUserCard['服務項目'] || currentUserCard['職稱'] || currentUser?.industry || '',
+          buttons: myV1Buttons,
+          isPrivate: false,
+          descAlign: prevAlign,
+          descColor: prevColor
+      };
+
+      try {
+          await window.fetchAPI('updateCard', {
+              rowId: currentUserCard.rowId,
+              data: { '自訂名片設定': JSON.stringify(config), '名片圖檔': config.imgUrl || '' }
+          }, true);
+          currentUserCard['自訂名片設定'] = JSON.stringify(config);
+          currentUserCard['名片圖檔'] = config.imgUrl || '';
+          
+          window.showToast('✅ 專屬名片已儲存！您現在可以在首頁發送名片了。');
+      } catch(e) {
+          window.showToast('⚠️ 儲存失敗：' + e.message, true);
+      } finally {
+          btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> 儲存名片設定';
+          btn.disabled = false;
+          window.updateMyECardPreview();
+      }
+  };
+
+  window.loadAllUsers = async function() {
+      const container = document.getElementById('store-management-list');
+      if(!container) return;
+      container.innerHTML = '<div class="text-center py-6 text-slate-400 text-xs font-bold animate-pulse">載入用戶資料中...</div>';
+      
+      try {
+          const res = await window.fetchAPI('getAllUsers', {}, true);
+          // 增強型陣列判斷，避免 API 回傳異常導致無法渲染
+          if (res && !res.error && Array.isArray(res)) {
+              allSystemUsers = res;
+              window.renderStoreManagement();
+          } else {
+              container.innerHTML = '<div class="text-center py-6 text-red-400 text-xs font-bold">無法載入用戶資料</div>';
+          }
+      } catch(e) {
+          container.innerHTML = '<div class="text-center py-6 text-red-400 text-xs font-bold">載入失敗，請重試</div>';
+      }
+  };
+
+  window.renderStoreManagement = function() {
+      const container = document.getElementById('store-management-list');
+      if(!container) return;
+      
+      if(allSystemUsers.length === 0) {
+          container.innerHTML = '<div class="text-center py-6 text-slate-400 text-xs">尚無任何註冊用戶</div>';
+          return;
+      }
+
+      container.innerHTML = allSystemUsers.map(u => {
+          const isMe = u.userId === currentUserProfile?.userId;
+          return '<div class="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col gap-3 shadow-sm">' +
+              '<div class="flex justify-between items-center">' +
+                  '<div>' +
+                      '<div class="font-black text-[15px] text-slate-800 flex items-center gap-1.5">' +
+                          window.escapeJS(u.name || '未命名用戶') + ' ' +
+                          (isMe ? '<span class="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded text-[10px] tracking-wide">你自己</span>' : '') +
+                      '</div>' +
+                      '<div class="text-[12px] text-slate-500 font-mono mt-0.5">' + window.escapeJS(u.phone || '無設定電話') + '</div>' +
+                  '</div>' +
+                  '<select onchange="window.changeUserRole(\'' + window.escapeJS(u.userId) + '\', this.value)" ' + (isMe ? 'disabled' : '') + ' class="bg-slate-50 border-none rounded-lg p-2 text-[12px] font-bold text-slate-700 shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none cursor-pointer w-[120px] shrink-0 text-center" style="-webkit-appearance:none;appearance:none;">' +
+                      '<option value="user" ' + (u.role === 'user' ? 'selected' : '') + '>一般 User</option>' +
+                      '<option value="store" ' + (u.role === 'store' ? 'selected' : '') + '>商家 Store</option>' +
+                      '<option value="admin" ' + (u.role === 'admin' ? 'selected' : '') + '>管理 Admin</option>' +
+                  '</select>' +
+              '</div>' +
+              '<div class="text-[11px] text-slate-400 flex items-center gap-1.5 bg-slate-50 px-2 py-1.5 rounded-lg w-fit">' +
+                  '<span class="material-symbols-outlined text-[14px]">storefront</span> ' +
+                  'StoreID: <span class="font-mono text-slate-700 font-bold">' + window.escapeJS(u.storeid || '尚未生成') + '</span>' +
+              '</div>' +
+          '</div>';
+      }).join('');
+  };
+
+  window.changeUserRole = async function(userId, newRole) {
+      window.showToast('更新權限中...');
+      try {
+          const res = await window.fetchAPI('updateUserRole', { userId, newRole }, true);
+          if(res && !res.error) {
+              window.showToast('✅ 用戶權限已成功更新為：' + newRole);
+              const user = allSystemUsers.find(u => u.userId === userId);
+              if(user) user.role = newRole;
+          } else {
+              throw new Error(res.error || '更新失敗');
+          }
+      } catch(e) {
+          window.showToast('⚠️ ' + e.message, true);
+          window.renderStoreManagement(); 
+      }
+  };
+
+  window.goPage = function(page, isInitLoad = false) {
+    if (page === 'profile') page = 'admin-settings'; 
+
+    document.querySelectorAll('[id^="page"]').forEach(el => el.classList.add('hidden'));
+    const targetPage = document.getElementById('page-' + page);
+    if (targetPage) targetPage.classList.remove('hidden');
+    
+    if (!isInitLoad) {
+        if (page === 'admin-activities') window.loadAdminActivities();
+        else if (page === 'home') window.loadUserActivities();
+        else if (page === 'admin-stats') window.loadAdminStats();
+        else if (page === 'admin-settings') {
+            if (currentUser) {
+                const pn = document.getElementById('profile-name');
+                if (pn) pn.value = currentUser.name || '';
+                const pp = document.getElementById('profile-phone');
+                if (pp) pp.value = String(currentUser.phone || '').replaceAll(String.fromCharCode(8203), '').replaceAll("'", "");
+                const pi = document.getElementById('profile-industry');
+                if (pi) pi.value = currentUser.industry || '';
+                const pb = document.getElementById('profile-birthday');
+                if (pb) pb.value = currentUser.birthday || '';
+            }
+            window.userSocials = [];
+            try { if(currentUser && currentUser.socials) window.userSocials = JSON.parse(currentUser.socials); } catch(e){}
+            
+            const bannerMgmtBlock = document.getElementById('details-store-banner');
+            if (currentUser?.role === 'admin' || currentUser?.role === 'store') {
+                if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
+                let currentBanner = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80';
+                let currentYoutube = ''; 
+                if (currentUserCard && currentUserCard['自訂名片設定']) {
+                    try {
+                        const cfg = JSON.parse(currentUserCard['自訂名片設定']);
+                        if (cfg.homeBanner) currentBanner = cfg.homeBanner;
+                        if (cfg.homeYoutube) currentYoutube = cfg.homeYoutube;
+                    } catch(e){}
+                }
+                const bannerInput = document.getElementById('input-store-banner');
+                if(bannerInput) bannerInput.value = currentBanner;
+                const bannerPreview = document.getElementById('setting-preview-banner');
+                if(bannerPreview) bannerPreview.src = currentBanner;
+                
+                const ytInput = document.getElementById('input-store-youtube');
+                if(ytInput) ytInput.value = currentYoutube;
+            } else {
+                if (bannerMgmtBlock) bannerMgmtBlock.classList.add('hidden');
+            }
+
+            const storeMgmtBlock = document.getElementById('details-store-management');
+            if (currentUser?.role === 'admin') {
+                if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
+                if (allSystemUsers.length === 0) window.loadAllUsers(); 
+            } else {
+                if (storeMgmtBlock) storeMgmtBlock.classList.add('hidden');
+            }
+
+            // 雙重保證：進入設定頁時強制確認後台切換按鈕顯示狀態
+            const adminSwitch = document.getElementById('admin-switch-container');
+            const topNavSwitch = document.getElementById('top-nav-switch');
+            if (currentUser?.role === 'admin' || currentUser?.role === 'store') {
+                if (adminSwitch) adminSwitch.classList.remove('hidden');
+                if (topNavSwitch) topNavSwitch.classList.remove('hidden');
+            } else {
+                if (adminSwitch) adminSwitch.classList.add('hidden');
+                if (topNavSwitch) topNavSwitch.classList.add('hidden');
+            }
+        }
+    }
+
+    const bottomNav = document.getElementById('bottom-nav');
+    const bottomNavAdmin = document.getElementById('bottom-nav-admin');
+    
+    if (page === 'register' || page === 'admin-stats') {
+        if(bottomNav) bottomNav.classList.add('hidden');
+        if(bottomNavAdmin) bottomNavAdmin.classList.add('hidden');
+    } else {
+        if (currentViewMode === 'admin') {
+            if(bottomNav) bottomNav.classList.add('hidden');
+            if(bottomNavAdmin) bottomNavAdmin.classList.remove('hidden');
+        } else {
+            if(bottomNav) bottomNav.classList.remove('hidden');
+            if(bottomNavAdmin) bottomNavAdmin.classList.add('hidden');
+        }
+    }
+    
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('nav-active'));
+    const stdBtn = document.getElementById('nav-btn-' + page);
+    if (stdBtn) stdBtn.classList.add('nav-active');
+    
+    const admBtn = document.getElementById('admin-nav-btn-' + page);
+    if (admBtn) admBtn.classList.add('nav-active');
+  };
+
+  window.toggleAdminMode = function() {
+      if (currentViewMode === 'admin') {
+          currentViewMode = 'user';
+          window.showToast('已切換至【前台用戶模式】');
+          document.getElementById('header-admin-badge').classList.add('hidden');
+          window.goPage('home');
+      } else {
+          currentViewMode = 'admin';
+          window.showToast('已切換至【後台管理模式】');
+          document.getElementById('header-admin-badge').classList.remove('hidden');
+          if (activeBatchCount === 0) window.addBatchRow(); 
+          window.goPage('admin-activities'); 
+      }
+      
+      const btnText = document.getElementById('admin-switch-text');
+      if(btnText) btnText.textContent = currentViewMode === 'admin' ? '切換至前台 (一般用戶)' : '切換至後台 (管理模式)';
+      
+      const adminTools = document.getElementById('admin-tools-container');
+      if (currentViewMode === 'admin') {
+          if (adminTools) adminTools.classList.remove('hidden');
+      } else {
+          if (adminTools) adminTools.classList.add('hidden');
+      }
+  };
+
+  window.loadUserActivities = async function() {
+      const container = document.getElementById('user-activities-list');
+      if(!container) return;
+      
+      try {
+          const res = await window.fetchAPI('getPublicActivities', {}, true);
+          if (res && res.length > 0) {
+              const validActs = res.reverse(); 
+              if(validActs.length === 0) {
+                   container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-slate-100 text-slate-400 text-sm font-bold">近期無公開活動</div>';
+                   return;
+              }
+              container.innerHTML = validActs.map(act => {
+                  const title = window.escapeJS(act['活動名稱'] || '未命名活動');
+                  const time = window.formatDisplayTime(act['開始時間']);
+                  const fee = act['金額'] > 0 ? 'NT$ ' + act['金額'] : '免費';
+                  const img = act['宣傳圖'] || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80';
+                  const desc = window.escapeJS(act['活動說明'] || '');
+                  const actId = window.escapeJS(act.rowId);
+                  
+                  return '<div class="bg-white mb-6 flex flex-col pb-4 border-b border-slate-100 last:border-0">' +
+                      '<div class="w-full aspect-[16/9] relative rounded-lg overflow-hidden bg-slate-100">' +
+                          '<img src="' + img + '" class="w-full h-full object-cover">' +
+                          '<div class="absolute top-2 left-2 bg-black/60 backdrop-blur-sm text-white text-[11px] px-2 py-0.5 rounded font-normal">' + fee + '</div>' +
+                      '</div>' +
+                      '<div class="pt-3 flex flex-col">' +
+                          '<h4 class="text-[16px] text-slate-800 font-bold leading-snug mb-1">' + title + '</h4>' +
+                          '<div class="text-[13px] text-slate-500 mb-2">' + time + '</div>' +
+                          (desc ? '<p class="text-[13px] text-slate-600 line-clamp-3 leading-relaxed mb-3">' + desc + '</p>' : '') +
+                          '<button type="button" onclick="window.userJoinActivity(\'' + actId + '\', \'' + title + '\', event)" class="mt-1 w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[14px] font-medium active:scale-95 transition-transform flex justify-center items-center gap-1">' +
+                              '立即報名' +
+                          '</button>' +
+                      '</div>' +
+                  '</div>';
+              }).join('');
+          } else {
+              container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-slate-100 text-slate-400 text-sm font-bold">近期無公開活動</div>';
+          }
+      } catch(e) {
+          container.innerHTML = '<div class="text-center py-6 text-red-400 text-sm font-bold">無法載入活動</div>';
+      }
+  };
+
+  window.userJoinActivity = async function(actId, actName, event) {
+      if(!confirm('確定要報名「' + actName + '」嗎？')) return;
+      const btn = event.currentTarget;
+      const oriHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 報名中...';
+      btn.disabled = true;
+      try {
+          const res = await window.fetchAPI('joinActivity', {
+              activityId: actId,
+              activityName: actName,
+              userId: currentUserProfile.userId,
+              userName: currentUser.name,
+              userPhone: currentUser.phone,
+              defaultIdentity: '會員'
+          }, true);
+          if(res && !res.error) {
+              window.showToast('🎉 報名成功！');
+              btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">check_circle</span> 已報名';
+              btn.classList.replace('text-slate-700', 'text-green-600');
+              btn.classList.replace('bg-slate-100', 'bg-green-50');
+          } else {
+              throw new Error(res.error || '報名失敗');
+          }
+      } catch (e) {
+          window.showToast('⚠️ ' + e.message, true);
+          btn.innerHTML = oriHtml;
+          btn.disabled = false;
+      }
+  };
+
+  window.loadAdminActivities = async function() {
+      const listContainer = document.getElementById('admin-activities-list');
+      if (!listContainer) return;
+
+      listContainer.innerHTML = '<div class="text-center py-10"><span class="material-symbols-outlined animate-spin text-3xl text-slate-300">refresh</span><p class="text-sm text-slate-400 font-bold mt-2">載入活動中...</p></div>';
+
+      try {
+          const res = await window.fetchAPI('getPublicActivities', {}, true);
+          if (res && res.length > 0) {
+              const reversedRes = res.reverse();
+              listContainer.innerHTML = reversedRes.map(act => {
+                  const title = window.escapeJS(act['活動名稱'] || '未命名活動');
+                  const actId = window.escapeJS(act.rowId);
+                  const statusText = '上架'; 
+                  const statusColor = 'text-[#06C755]';
+                  
+                  return '<div class="bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-100">' +
+                      '<div class="flex justify-between items-start mb-4">' +
+                          '<div class="w-8 h-1 bg-green-100 rounded-full mt-2"></div>' +
+                          '<div class="bg-slate-50 text-slate-600 px-3 py-1 rounded-xl text-[13px] font-bold flex items-center gap-1 border border-slate-100">' +
+                              '<span class="material-symbols-outlined text-[16px]">group</span> 0' +
+                          '</div>' +
+                      '</div>' +
+                      '<h3 class="text-xl font-black text-slate-800 mb-6 tracking-tight">' + title + '</h3>' +
+                      '<div class="grid grid-cols-3 text-center mb-6 divide-x divide-slate-100">' +
+                          '<div>' +
+                              '<p class="text-[12px] font-bold text-slate-500 mb-1">狀態</p>' +
+                              '<p class="text-[14px] font-black ' + statusColor + '">' + statusText + '</p>' +
+                          '</div>' +
+                          '<div>' +
+                              '<p class="text-[12px] font-bold text-slate-500 mb-1">已到</p>' +
+                              '<p class="text-[14px] font-black text-[#06C755]">0</p>' +
+                          '</div>' +
+                          '<div>' +
+                              '<p class="text-[12px] font-bold text-slate-500 mb-1">取消</p>' +
+                              '<p class="text-[14px] font-black text-red-500">0</p>' +
+                          '</div>' +
+                      '</div>' +
+                      '<div class="flex gap-3">' +
+                          '<button type="button" onclick="window.unpublishActivity(\'' + actId + '\', this)" class="flex-1 bg-red-50 text-red-600 py-3.5 rounded-2xl font-bold text-[14px] active:scale-95 transition-transform hover:bg-red-100">下架</button>' +
+                          '<button type="button" class="flex-[1.5] bg-[#1e293b] text-white py-3.5 rounded-2xl font-bold text-[14px] active:scale-95 transition-transform shadow-md">名單核銷</button>' +
+                      '</div>' +
+                  '</div>';
+              }).join('');
+          } else {
+              listContainer.innerHTML = '<div class="text-center py-10 bg-white rounded-[1.5rem] border border-slate-100"><span class="material-symbols-outlined text-4xl text-slate-300 mb-2">inbox</span><p class="text-slate-400 font-bold text-sm">目前沒有任何活動</p></div>';
+          }
+      } catch (e) {
+          listContainer.innerHTML = '<div class="text-center py-10 text-red-500 font-bold text-sm">載入失敗：' + e.message + '</div>';
+      }
+  };
+
+  window.unpublishActivity = async function(actId, btnEl) {
+      if(!confirm('確定要下架此活動嗎？相關的所有報名資料也將一併移除。')) return;
+      const oriHtml = btnEl.innerHTML;
+      btnEl.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span>';
+      btnEl.disabled = true;
+      
+      try {
+          const res = await window.fetchAPI('removeAct', { activityId: actId }, true); 
+          if (res && !res.error) {
+              window.showToast('✅ 活動已成功下架！');
+              window.loadAdminActivities(); 
+              window.loadUserActivities(); 
+          } else {
+              throw new Error(res.error || '下架失敗');
+          }
+      } catch(e) {
+          window.showToast('⚠️ ' + e.message, true);
+          btnEl.innerHTML = oriHtml;
+          btnEl.disabled = false;
+      }
+  };
+
+  window.loadAdminStats = async function() {
+      const content = document.getElementById('admin-stats-content');
+      if(!content) return;
+      content.innerHTML = '<div class="text-center py-10"><span class="material-symbols-outlined animate-spin text-3xl text-slate-300">refresh</span><p class="text-sm text-slate-400 font-bold mt-2">載入數據中...</p></div>';
+
+      try {
+          const res = await window.fetchAPI('getAdminStats', {}, true);
+          if (res) {
+              let tableRows = '';
+              if(res.details && res.details.length > 0) {
+                  tableRows = res.details.map(d => 
+                      '<tr class="border-b border-slate-100 last:border-0">' +
+                          '<td class="py-4 px-4 font-bold text-slate-800 text-[13px] whitespace-nowrap">' + window.escapeJS(d.name) + '</td>' +
+                          '<td class="py-4 px-4 font-black text-blue-600 text-[14px] text-center">' + d.count + '</td>' +
+                          '<td class="py-4 px-4 font-black text-slate-800 text-[14px] text-center">$' + Number(d.revenue).toLocaleString() + '</td>' +
+                          '<td class="py-4 px-4 font-black text-orange-500 text-[14px] text-center">' + d.unpaid + '</td>' +
+                      '</tr>'
+                  ).join('');
+              } else {
+                  tableRows = '<tr><td colspan="4" class="text-center py-6 text-slate-400 font-bold text-[13px]">目前無活動數據</td></tr>';
+              }
+
+              content.innerHTML = 
+                  '<div class="grid grid-cols-2 gap-4 mb-4">' +
+                      '<div class="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">' +
+                          '<div class="flex items-center gap-1.5 text-[#06C755] mb-2">' +
+                              '<span class="material-symbols-outlined text-[18px] icon-filled">payments</span>' +
+                              '<span class="text-[12px] font-bold">預估總營收</span>' +
+                          '</div>' +
+                          '<div class="text-[28px] font-black text-slate-800 tracking-tight">NT$ ' + Number(res.totalRevenue || 0).toLocaleString() + '</div>' +
+                      '</div>' +
+                      '<div class="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">' +
+                          '<div class="flex items-center gap-1.5 text-blue-500 mb-2">' +
+                              '<span class="material-symbols-outlined text-[18px] icon-filled">person</span>' +
+                              '<span class="text-[12px] font-bold">總報名人數</span>' +
+                          '</div>' +
+                          '<div class="text-[28px] font-black text-slate-800 tracking-tight">' + (res.totalRegistrants || 0) + ' <span class="text-[14px] text-slate-400 font-bold ml-1">人</span></div>' +
+                      '</div>' +
+                  '</div>' +
+                  
+                  '<div class="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex justify-between items-center mb-6">' +
+                      '<div class="flex items-center gap-2 text-slate-600">' +
+                          '<span class="material-symbols-outlined text-[20px]">inventory_2</span>' +
+                          '<span class="text-[14px] font-bold">目前上架活動</span>' +
+                      '</div>' +
+                      '<div class="text-[20px] font-black text-slate-800">' + (res.activeActivitiesCount || 0) + ' <span class="text-[13px] text-slate-400 font-bold ml-1">檔</span></div>' +
+                  '</div>' +
+
+                  '<div class="mb-3 flex justify-between items-end px-1">' +
+                      '<div class="flex items-center gap-1.5 text-blue-600">' +
+                          '<span class="material-symbols-outlined text-[18px] icon-filled">bar_chart</span>' +
+                          '<span class="text-[14px] font-black tracking-wide">詳細營運報表</span>' +
+                      '</div>' +
+                      '<div class="flex items-center gap-1 text-slate-400">' +
+                          '<span class="material-symbols-outlined text-[14px]">swipe</span>' +
+                          '<span class="text-[11px] font-bold">在表格上左右滑動</span>' +
+                      '</div>' +
+                  '</div>' +
+
+                  '<div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">' +
+                      '<div class="overflow-x-auto hide-scrollbar">' +
+                          '<table class="w-full text-left border-collapse min-w-[400px]">' +
+                              '<thead>' +
+                                  '<tr class="bg-slate-50/50 border-b border-slate-100">' +
+                                      '<th class="py-3 px-4 text-[12px] font-bold text-slate-500 whitespace-nowrap">課程名稱</th>' +
+                                      '<th class="py-3 px-4 text-[12px] font-bold text-slate-500 text-center whitespace-nowrap">報名總數</th>' +
+                                      '<th class="py-3 px-4 text-[12px] font-bold text-slate-500 text-center whitespace-nowrap">應收總額</th>' +
+                                      '<th class="py-3 px-4 text-[12px] font-bold text-orange-500 text-center whitespace-nowrap">待付人數</th>' +
+                                  '</tr>' +
+                              '</thead>' +
+                              '<tbody>' +
+                                  tableRows +
+                              '</tbody>' +
+                          '</table>' +
+                      '</div>' +
+                  '</div>';
+          } else {
+              throw new Error('無法取得統計資料');
+          }
+      } catch(e) {
+          content.innerHTML = '<div class="text-center py-10 text-red-500 font-bold text-sm">載入失敗：' + e.message + '</div>';
+      }
+  };
+
+  window.renderUserSocials = function() {
+      const container = document.getElementById('user-socials-list');
+      if(!container) return;
+      const socialTypes = ['LINE','FB','IG','YT','TEL','WEB'];
+      container.innerHTML = window.userSocials.map((s, i) => 
+        '<div class="flex gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-100">' +
+          '<select class="bg-white border-none rounded-lg p-2.5 text-[12px] font-bold shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none w-[70px] shrink-0" onchange="window.userSocials['+i+'].type=this.value" style="-webkit-appearance:none;appearance:none;">' +
+            socialTypes.map(t => '<option value="' + t + '" ' + (s.type===t?'selected':'') + '>' + t + '</option>').join('') +
+          '</select>' +
+          '<input class="flex-1 bg-white border-none rounded-lg p-2.5 text-[12px] font-mono shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none" placeholder="https://" value="' + window.escapeJS(s.url||'') + '" oninput="window.userSocials['+i+'].url=this.value">' +
+          '<button type="button" onclick="window.userSocials.splice('+i+',1);window.renderUserSocials()" class="text-red-400 bg-red-50 w-9 h-9 rounded-lg flex items-center justify-center shrink-0 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">delete</span></button>' +
+        '</div>'
+      ).join('');
+  };
+
+  window.addUserSocial = function() {
+      window.userSocials.push({type: 'LINE', url: ''});
+      window.renderUserSocials();
+  };
+
+  window.saveUserSettings = async function(event) {
+      const btn = event.currentTarget || document.getElementById('btn-save-settings');
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 儲存中...';
+      btn.disabled = true;
+
+      window.userSocials.forEach(s => { s.url = window.cleanURI(s.url); });
+
+      const payloadData = {
+          '社群帳號': JSON.stringify(window.userSocials),
+          'TG Token': document.getElementById('setting-tg-token').value.trim(),
+          'TG Chat ID': document.getElementById('setting-tg-chatid').value.trim()
+      };
+
+      try {
+          const res = await window.fetchAPI('updateUserProfile', {
+              userId: currentUserProfile.userId,
+              data: payloadData
+          }, true);
+
+          if(res && !res.error) {
+              window.showToast('✅ 系統參數已更新！');
+              currentUser.socials = payloadData['社群帳號'];
+              currentUser.tgToken = payloadData['TG Token'];
+              currentUser.tgChatId = payloadData['TG Chat ID'];
+          } else {
+              throw new Error(res.error || '更新失敗');
+          }
+      } catch(e) {
+          window.showToast('⚠️ ' + e.message, true);
+      } finally {
+          btn.innerHTML = originalHtml;
+          btn.disabled = false;
+      }
+  };
+
+  window.submitRegistration = async function() {
+    const name = document.getElementById('reg-name').value.trim();
+    const phone = document.getElementById('reg-phone').value.trim();
+    const industry = document.getElementById('reg-industry').value.trim();
+    const birthday = document.getElementById('reg-birthday').value.trim();
+    
+    if(!name || !phone) return window.showToast('請填寫真實姓名與手機', true);
+
+    const btn = document.getElementById('btn-register');
+    btn.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> 註冊中...'; 
+    btn.disabled = true;
+
+    try {
+        const profile = await liff.getProfile();
+        const generatedStoreId = 'S' + profile.userId.substring(1, 9).toUpperCase(); 
+        
+        const payloadData = {
+            '姓名': name,
+            '手機': phone,
+            '業種': industry,
+            '生日': birthday,
+            '權限': 'user',
+            'storeid': generatedStoreId, 
+            '推薦人': window.urlRef,  
+            'networkId': window.urlNet || 'admin' 
+        };
+        const res = await window.fetchAPI('registerUser', {
+            userId: profile.userId,
+            ...payloadData 
+        }, true); 
+
+        if(res && !res.error) {
+            window.showToast('✅ 註冊成功，歡迎加入！');
+            currentUser = { name, industry, phone, birthday, role: 'user', networkId: payloadData.networkId };
+            userRole = 'user';
+            currentNetworkId = currentUser.networkId;
+            hasAdminRights = false;
+            currentViewMode = 'user';
+            
+            const elUserName = document.getElementById('user-name');
+            if(elUserName) elUserName.textContent = '歡迎 ' + name;
+            const elUserStatus = document.getElementById('user-status');
+            if(elUserStatus) elUserStatus.textContent = industry || '已註冊用戶';
+            
+            document.getElementById('profile-name').value = name;
+            document.getElementById('profile-phone').value = phone;
+            document.getElementById('profile-industry').value = industry;
+            document.getElementById('profile-birthday').value = birthday;
+            
+            window.loadAllData();
+            window.loadUserActivities();
+            window.goPage('home');
+        } else {
+            throw new Error(res.error || '註冊失敗');
+        }
+    } catch(e) {
+        window.showToast('⚠️ ' + e.message, true);
+    } finally {
+        btn.innerHTML = '開始使用 <span class="material-symbols-outlined">arrow_forward</span>'; 
+        btn.disabled = false;
+    }
+  };
+  
+  window.updateUserProfile = async function(event) {
+    const btn = event.currentTarget;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 儲存中...';
+    btn.disabled = true;
+
+    const name = document.getElementById('profile-name').value.trim();
+    const phone = document.getElementById('profile-phone').value.trim();
+    const industry = document.getElementById('profile-industry').value.trim();
+    const birthday = document.getElementById('profile-birthday').value.trim();
+
+    try {
+        const profile = await liff.getProfile();
+        const payloadData = {
+            '姓名': name,
+            '手機': phone,
+            '業種': industry,
+            '生日': birthday
+        };
+        const res = await window.fetchAPI('updateUserProfile', {
+            userId: profile.userId,
+            data: payloadData
+        }, true);
+
+        if(res && !res.error) {
+            window.showToast('✅ 基本資料已更新！');
+            currentUser = { ...currentUser, name, phone, industry, birthday };
+            const elUserName = document.getElementById('user-name');
+            if(elUserName) elUserName.textContent = '歡迎回來，' + name;
+            const elUserStatus = document.getElementById('user-status');
+            if(elUserStatus) elUserStatus.textContent = industry || '已註冊用戶';
+            window.updateMyECardPreview(); 
+        } else {
+            throw new Error(res.error || '更新失敗');
+        }
+    } catch(e) {
+        window.showToast('⚠️ ' + e.message, true);
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+  };
+
+  window.recognizeCard = async function(inputEl) {
+    window.cropTarget = 'general';
+    const file = inputEl.files[0];
+    if (!file) return;
+
+    const role = currentUser?.role || 'user';
+    const limit = window.LIMITS[role].cards;
+    if (allCards.length >= limit) {
+        inputEl.value = '';
+        return window.showToast('用量限制：您的方案 (' + role + ') 最多只能掃描 ' + limit + ' 張名片，請聯絡管理員升級。', true);
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const cropperModal = document.getElementById('cropper-modal');
+      const cropperImage = document.getElementById('cropper-image');
+      cropperImage.src = e.target.result;
+      cropperModal.classList.remove('hidden');
+
+      if (cropperInstance) cropperInstance.destroy();
+      cropperInstance = new Cropper(cropperImage, {
+        aspectRatio: NaN,
+        viewMode: 1,
+        dragMode: 'move',
+        autoCropArea: 0.9,
+        restore: false,
+        guides: true,
+        center: true,
+        highlight: false,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
+        toggleDragModeOnDblclick: false,
+      });
+    };
+    reader.readAsDataURL(file);
+    inputEl.value = ''; 
+  };
+
+  window.recognizeMyCard = async function(inputEl) {
+      window.cropTarget = 'mycard';
+      const file = inputEl.files[0];
+      if (!file) return;
+
+      const role = currentUser?.role || 'user';
+      const limit = window.LIMITS[role].cards;
+      if (allCards.length >= limit) {
+          inputEl.value = '';
+          return window.showToast('用量限制：您的方案 (' + role + ') 最多只能掃描 ' + limit + ' 張名片，請聯絡管理員升級。', true);
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const cropperModal = document.getElementById('cropper-modal');
+        const cropperImage = document.getElementById('cropper-image');
+        cropperImage.src = e.target.result;
+        cropperModal.classList.remove('hidden');
+
+        if (cropperInstance) cropperInstance.destroy();
+        cropperInstance = new Cropper(cropperImage, {
+          aspectRatio: NaN,
+          viewMode: 1, dragMode: 'move', autoCropArea: 0.9, restore: false,
+          guides: true, center: true, highlight: false, cropBoxMovable: true,
+          cropBoxResizable: true, toggleDragModeOnDblclick: false,
+        });
+      };
+      reader.readAsDataURL(file);
+      inputEl.value = ''; 
+  };
+
+  window.cancelCrop = function() {
+    document.getElementById('cropper-modal').classList.add('hidden');
+    if (cropperInstance) {
+       cropperInstance.destroy();
+       cropperInstance = null;
+    }
+    // 防呆：關閉時把確認按鈕的事件切回預設的名片辨識，避免事件污染
+    const confirmBtn = document.getElementById('btn-confirm-crop');
+    if (confirmBtn) confirmBtn.setAttribute('onclick', 'window.confirmCrop()');
+  };
+
+  // ----------------------------------------------------
+  // 新增：全域變數紀錄當前上傳的目標 ID
+  window.currentUploadTargetId = null;
+
+  // 修改：將原本直接上傳的邏輯，改為「先開啟裁切器」
+  window.uploadCustomImageToR2 = function(inputEl, targetInputId) {
+    const file = inputEl.files[0];
+    if (!file) return;
+
+    window.currentUploadTargetId = targetInputId;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const cropperModal = document.getElementById('cropper-modal');
+      const cropperImage = document.getElementById('cropper-image');
+      cropperImage.src = e.target.result;
+      cropperModal.classList.remove('hidden');
+
+      // 動態替換裁切確認按鈕的事件，導向「一般圖片上傳壓縮邏輯」
+      const confirmBtn = document.getElementById('btn-confirm-crop');
+      if (confirmBtn) confirmBtn.setAttribute('onclick', 'window.confirmCustomImageCrop()');
+
+      if (cropperInstance) cropperInstance.destroy();
+
+      // 全面解除比例限制，改為自由伸縮裁切
+      cropperInstance = new Cropper(cropperImage, {
+        aspectRatio: NaN,
+        viewMode: 1,
+        dragMode: 'move',
+        autoCropArea: 0.9,
+        restore: false,
+        guides: true,
+        center: true,
+        highlight: false,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
+        toggleDragModeOnDblclick: false,
+      });
+    };
+    reader.readAsDataURL(file);
+    inputEl.value = ''; // 清空 input 確保下次選同檔案會觸發
+  };
+
+  // 新增：專門處理一般圖片的裁切、500K壓縮與上傳
+  window.confirmCustomImageCrop = async function() {
+    if (!cropperInstance) return;
+    const btn = document.getElementById('btn-confirm-crop');
+    btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px] align-middle">refresh</span> 處理中...';
+    btn.disabled = true;
+
+    // 壓縮與解析度控制：最大 1200px，限制在約 500K 左右
+    let size = 1200;
+    let quality = 0.85;
+    let base64Image = cropperInstance.getCroppedCanvas({
+      maxWidth: size,
+      maxHeight: size,
+      imageSmoothingEnabled: true,
+      imageSmoothingQuality: 'high',
+    }).toDataURL('image/jpeg', quality);
+
+    // 迴圈動態降質，確保 Base64 字串長度低於 50 萬 (約 375KB)
+    while (base64Image.length > 500000 && quality > 0.3) {
+       quality -= 0.1;
+       base64Image = cropperInstance.getCroppedCanvas({ maxWidth: size, maxHeight: size }).toDataURL('image/jpeg', quality);
+    }
+    
+    if (base64Image.length > 800000) {
+        window.cancelCrop();
+        return window.showToast("⚠️ 圖片檔案過大無法壓縮，請選擇其他圖片", true);
+    }
+
+    // 關閉 Modal 並還原按鈕狀態
+    window.cancelCrop(); 
+
+    // 準備進行實際的 R2 上傳
+    const targetInputId = window.currentUploadTargetId;
+    const targetInput = document.getElementById(targetInputId);
+    const originalVal = targetInput.value;
+    targetInput.value = '圖片上傳中...';
+    targetInput.disabled = true;
+
+    window.showToast('⏳ 圖片上傳中...');
+
+    try {
+      const res = await window.fetchAPI('uploadImageToR2', { base64Image: base64Image }, true);
+      if (res && res.url) {
+        targetInput.value = res.url;
+        window.showToast('✅ 圖片已成功上傳');
+        
+        // 根據 ID 更新對應的預覽畫面
+        if (targetInputId === 'my-v1-img-url') {
+            if (typeof window.updateMyECardPreview === 'function') window.updateMyECardPreview();
+        } else if (targetInputId === 'input-store-banner') {
+            document.getElementById('setting-preview-banner').src = res.url;
+        } else {
+            if (typeof window.updateECardPreview === 'function') window.updateECardPreview();
+        }
+      } else {
+        throw new Error(res.error || '上傳失敗');
+      }
+    } catch (err) {
+      targetInput.value = originalVal;
+      window.showToast('⚠️ ' + err.message, true);
+    } finally {
+      targetInput.disabled = false;
+    }
+  };
+  // ----------------------------------------------------
+
+  window.switchActiveTab = function(tabId) {
+      ['quick', 'full', 'series'].forEach(id => {
+          document.getElementById('tab-content-' + id).classList.add('hidden');
+          const btn = document.getElementById('tab-btn-' + id);
+          btn.className = 'flex-1 py-2.5 rounded-xl text-[14px] font-bold text-slate-500 transition-all hover:text-slate-700 bg-transparent';
+      });
+      document.getElementById('tab-content-' + tabId).classList.remove('hidden');
+      document.getElementById('tab-btn-' + tabId).className = 'flex-1 py-2.5 rounded-xl text-[14px] font-bold bg-white text-blue-600 shadow-sm transition-all';
+  };
+
+  window.toggleFeeInput = function(prefix) {
+      const feeRadio = document.querySelector('input[name="' + prefix + '-fee-type"]:checked');
+      if(!feeRadio) return;
+      const feeType = feeRadio.value;
+      const priceBox = document.getElementById(prefix + '-price-box');
+      if (feeType === '收費') {
+          if(priceBox) priceBox.classList.remove('hidden');
+      } else {
+          if(priceBox) priceBox.classList.add('hidden');
+          const priceInput = document.getElementById(prefix + '-price');
+          if(priceInput) priceInput.value = '';
+      }
+  };
+
+  window.addBatchRow = function(defaultValues = null, insertAfterId = null) {
+      activeBatchCount++;
+      const container = document.getElementById('batch-container');
+      const rowId = 'batch-' + activeBatchCount;
+      const html = 
+      '<div id="' + rowId + '" class="bg-slate-50 p-4 rounded-2xl relative border-none animate-in slide-in-from-top-2">' +
+          '<div class="absolute top-3 right-3 flex gap-1.5 z-10">' +
+              '<button type="button" onclick="window.copyBatchRow(\'' + rowId + '\')" class="w-8 h-8 bg-white text-blue-500 hover:bg-blue-50 rounded-full flex items-center justify-center shadow-sm transition-colors" title="複製此梯次"><span class="material-symbols-outlined text-[15px]">content_copy</span></button>' +
+              (activeBatchCount > 1 || insertAfterId ? '<button type="button" onclick="document.getElementById(\'' + rowId + '\').remove()" class="w-8 h-8 bg-white text-slate-400 hover:text-red-500 rounded-full flex items-center justify-center shadow-sm transition-colors" title="刪除此梯次"><span class="material-symbols-outlined text-[18px]">close</span></button>' : '') +
+          '</div>' +
+          '<div class="flex flex-col mb-3 pr-20">' +
+              '<input type="text" id="' + rowId + '-name" class="custom-input !h-[44px] !bg-white shadow-sm batch-name-input" placeholder="梯次名稱 (例如: 台北平日班)" value="' + (defaultValues ? defaultValues.name : '') + '">' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-3 mb-3">' +
+              '<input type="datetime-local" id="' + rowId + '-start" class="custom-input !h-[44px] !bg-white shadow-sm !text-[13px] !px-3 text-slate-600 batch-start-input" value="' + (defaultValues ? defaultValues.start : '') + '">' +
+              '<input type="datetime-local" id="' + rowId + '-end" class="custom-input !h-[44px] !bg-white shadow-sm !text-[13px] !px-3 text-slate-600 batch-end-input" value="' + (defaultValues ? defaultValues.end : '') + '">' +
+          '</div>' +
+          '<div class="flex items-center gap-2">' +
+              '<span class="text-[13px] font-bold text-slate-500 shrink-0 ml-1">收費 NT$</span>' +
+              '<input type="number" id="' + rowId + '-price" class="custom-input !h-[44px] !bg-white shadow-sm batch-price-input" placeholder="免費請留空或填 0" value="' + (defaultValues ? defaultValues.price : '') + '">' +
+              '<input type="hidden" class="batch-limit-input" value="' + (defaultValues ? defaultValues.limit : '') + '">' +
+          '</div>' +
+      '</div>';
+      
+      if (insertAfterId) document.getElementById(insertAfterId).insertAdjacentHTML('afterend', html);
+      else container.insertAdjacentHTML('beforeend', html);
+  };
+
+  window.copyBatchRow = function(sourceId) {
+      const srcName = document.getElementById(sourceId + '-name').value;
+      const srcStart = document.getElementById(sourceId + '-start').value;
+      const srcEnd = document.getElementById(sourceId + '-end').value;
+      const srcPrice = document.getElementById(sourceId + '-price').value;
+      window.addBatchRow({ name: srcName ? srcName + ' (複製)' : '', start: srcStart, end: srcEnd, price: srcPrice, limit: '' }, sourceId);
+  };
+
+  window.openActiveCropper = function(input, targetMode) {
+    const file = input.files[0]; 
+    if (!file) return;
+    currentActiveCropTarget = targetMode; 
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = document.getElementById('active-cropper-image'); 
+      if(!img) return;
+
+      img.onload = () => {
+          document.getElementById('section-image-cropper').classList.remove('hidden');
+          if (activeCropperInstance) activeCropperInstance.destroy();
+          img.style.opacity = '1';
+          
+          activeCropperInstance = new Cropper(img, { 
+              aspectRatio: NaN, 
+              viewMode: 1, 
+              dragMode: 'crop', 
+              autoCropArea: 0.9, 
+              guides: true, 
+              center: true, 
+              highlight: false 
+          }); 
+      };
+      img.src = e.target.result; 
+      img.style.opacity = '0';
+      input.value = ""; 
+    }; 
+    reader.readAsDataURL(file); 
+  };
+
+  window.cancelActiveCrop = function() { 
+    if (activeCropperInstance) { activeCropperInstance.destroy(); activeCropperInstance = null; } 
+    document.getElementById('section-image-cropper').classList.add('hidden'); 
+    
+    const img = document.getElementById('active-cropper-image');
+    if(img) { img.removeAttribute('src'); img.style.opacity = '0'; }
+  };
+
+  window.confirmActiveCrop = function() { 
+    if (!activeCropperInstance) return; 
+    let size = 800;
+    let quality = 0.85;
+    let base64 = activeCropperInstance.getCroppedCanvas({ maxWidth: size, maxHeight: size }).toDataURL('image/jpeg', quality); 
+    
+    while (base64.length > 500000 && quality > 0.3) {
+       quality -= 0.1;
+       base64 = activeCropperInstance.getCroppedCanvas({ maxWidth: size, maxHeight: size }).toDataURL('image/jpeg', quality);
+    }
+    if (base64.length > 800000) {
+        window.cancelActiveCrop();
+        return alert("⚠️ 圖片檔案過大無法壓縮，請選擇其他圖片");
+    }
+
+    window.cancelActiveCrop(); 
+    
+    const modeId = currentActiveCropTarget;
+    const previewImg = document.getElementById('image-preview-' + modeId);
+    const placeholder = document.getElementById('preview-placeholder-' + modeId);
+    const urlInput = document.getElementById('in-image-url-' + modeId);
+
+    if(previewImg && placeholder && urlInput) {
+        previewImg.src = base64; 
+        previewImg.classList.remove('hidden'); 
+        placeholder.classList.add('hidden'); 
+        urlInput.value = base64; 
+    } else {
+        alert('⚠️ 系統找不到對應的預覽區塊 (' + modeId + ')，請重新整理');
+    }
+  };
+
+  const formatDT = (val) => {
+      if (!val) return '';
+      return val.replace('T', ' ');
+  };
+
+  window.submitActivityForm = async function(mode) { 
+    const btnId = 'btn-submit-' + mode;
+    const btn = document.getElementById(btnId);
+    if (btn && btn.disabled) return;
+
+    const role = currentUser?.role || 'user';
+    if (role !== 'admin') {
+        try {
+            const acts = await window.fetchAPI('getPublicActivities', {}, true);
+            const myActs = (acts || []).filter(a => String(a.userId) === String(currentUserProfile.userId));
+            const limit = window.LIMITS[role].activities;
+            if (myActs.length >= limit) {
+                return alert('用量限制：您的方案 (' + role + ') 最多只能建立 ' + limit + ' 個活動，請聯絡管理員升級。');
+            }
+        } catch(e) {
+            console.log("讀取目前活動數量失敗，跳過限制檢查", e);
+        }
+    }
+
+    const pfx = mode === 'quick' ? 'q' : (mode === 'full' ? 'f' : 's');
+    
+    const nameInput = document.getElementById(pfx + '-name');
+    const name = nameInput ? nameInput.value.trim() : '';
+    if(!name) { alert('⚠️ 請填寫活動名稱/標題'); return nameInput?.focus(); }
+
+    const oriText = btn ? btn.innerHTML : '建立';
+    
+    if (btn) {
+        btn.innerHTML = '<span class="material-symbols-outlined animate-spin align-middle mr-1 text-[20px]">refresh</span> 處理中...';
+        btn.disabled = true;
+        btn.classList.add('opacity-70');
+    }
+
+    let rawImageUrl = document.getElementById('in-image-url-' + mode) ? document.getElementById('in-image-url-' + mode).value : '';
+    let finalImageUrl = rawImageUrl;
+
+    if (rawImageUrl.startsWith('data:image')) {
+        try {
+            if (btn) btn.innerHTML = '<span class="material-symbols-outlined animate-spin align-middle mr-1 text-[20px]">refresh</span> 上傳圖片至 CDN...';
+            
+            const upJson = await window.fetchAPI('uploadImageToR2', { base64Image: rawImageUrl }, true);
+            
+            if(upJson && upJson.url) {
+                finalImageUrl = upJson.url;
+            } else {
+                throw new Error("上傳失敗");
+            }
+        } catch(e) {
+            alert('⚠️ 圖片上傳失敗，請重試: ' + e.message);
+            if(btn) { btn.innerHTML = oriText; btn.disabled = false; btn.classList.remove('opacity-70'); }
+            return;
+        }
+    }
+
+    let p = { 
+      activityName: name,
+      activityType: document.getElementById(pfx + '-type') ? document.getElementById(pfx + '-type').value : '例會', 
+      feeType: '免費',
+      price: 0,
+      startTime: formatDT(document.getElementById(pfx + '-start') ? document.getElementById(pfx + '-start').value : ''),
+      endTime: formatDT(document.getElementById(pfx + '-end') ? document.getElementById(pfx + '-end').value : ''),
+      description: document.getElementById(pfx + '-desc') ? document.getElementById(pfx + '-desc').value.trim() : '',
+      imageUrl: finalImageUrl,
+      names: [],
+      defaultIdentity: document.getElementById(pfx + '-identity') ? document.getElementById(pfx + '-identity').value : '來賓',
+      isBatch: (mode === 'series'),
+      userId: currentUserProfile.userId 
+    }; 
+    
+    if(mode === 'quick' || mode === 'full') {
+      const feeRadio = document.querySelector('input[name="' + pfx + '-fee-type"]:checked');
+      p.feeType = feeRadio ? feeRadio.value : '免費';
+      p.price = document.getElementById(pfx + '-price') ? document.getElementById(pfx + '-price').value : '';
+      
+      if(p.feeType === '收費' && (!p.price || p.price <= 0)) {
+          if(btn){btn.innerHTML = oriText; btn.disabled = false; btn.classList.remove('opacity-70');} return alert("⚠️ 請輸入正確的收費金額");
+      }
+      
+      if (mode === 'quick') {
+          const namesStr = document.getElementById('q-names') ? document.getElementById('q-names').value : '';
+          p.names = namesStr.split(String.fromCharCode(10)).filter(n=>n.trim()); 
+      }
+      
+    } else if(mode === 'series') {
+      const cards = document.querySelectorAll('[id^="batch-item-"]');
+      p.batches = Array.from(cards).map(card => ({
+        name: card.querySelector('.batch-name-input').value.trim(),
+        startTime: formatDT(card.querySelector('.batch-start-input').value),
+        endTime: formatDT(card.querySelector('.batch-end-input').value),
+        price: card.querySelector('.batch-price-input').value,
+        limit: card.querySelector('.batch-limit-input').value
+      }));
+      
+      if(p.batches.length === 0) { if(btn){btn.innerHTML = oriText; btn.disabled = false; btn.classList.remove('opacity-70');} return alert("⚠️ 至少需新增一個梯次"); }
+      for(let b of p.batches) { if(!b.name) { if(btn){btn.innerHTML = oriText; btn.disabled = false; btn.classList.remove('opacity-70');} return alert("⚠️ 梯次名稱必填"); } }
+      
+      if(p.batches.length > 0) {
+           p.startTime = p.batches[0].startTime;
+           p.endTime = p.batches[p.batches.length - 1].endTime;
+           const hasPaid = p.batches.some(b => parseInt(b.price) > 0);
+           if (hasPaid) {
+               p.feeType = '收費';
+               p.price = Math.max(...p.batches.map(b => parseInt(b.price) || 0)); 
+           }
+      }
+    }
+    
+    try { 
+      const res = await window.fetchAPI('bulkAddRegistrants', p, true);
+      if (!res || res.error) throw new Error(res.error || '未知的錯誤');
+
+      alert('🎉 活動建立成功！即將跳轉...');
+      setTimeout(() => { window.goPage('admin-activities'); }, 1500); 
+    } catch(e) { 
+      alert('⚠️ 建立失敗：' + e.message);
+    } finally {
+      if(btn) { btn.innerHTML = oriText; btn.disabled = false; btn.classList.remove('opacity-70'); }
+    }
+  };
+
+  async function init() {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+
+      const urlParams = new URLSearchParams(window.location.search);
+      window.urlRef = urlParams.get('ref') || '';
+      window.urlNet = urlParams.get('net') || '';
+
+      if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
+      
+      // 1. 立即顯示首頁
+      window.goPage('home', true); 
+
+      const profile = await liff.getProfile();
+      currentUserProfile = profile;
+      document.getElementById('avatar').src = profile.pictureUrl || '';
+      document.getElementById('avatar').classList.remove('hidden');
+      
+      // ========================================================
+      // [本地快取秒開機制修正]：修復遺漏 networkId 導致的背景 API 空轉問題
+      // ========================================================
+      const cacheKey = 'actmaster_user_' + profile.userId;
+      const cachedData = localStorage.getItem(cacheKey);
+      if (cachedData) {
+          try {
+              const parsed = JSON.parse(cachedData);
+              currentUser = parsed;
+              userRole = currentUser.role || 'user';
+              
+              // [重點修復] 必須從快取中判斷並還原 networkId，否則背景請求會失敗！
+              if (userRole === 'store' || userRole === 'admin') {
+                  currentNetworkId = profile.userId; 
+              } else {
+                  currentNetworkId = currentUser.networkId || 'admin'; 
+              }
+              
+              hasAdminRights = (userRole === 'admin' || userRole === 'store');
+              
+              // 0.01 秒立刻解鎖後台按鈕
+              if (hasAdminRights) {
+                  const adminSwitch = document.getElementById('admin-switch-container');
+                  if (adminSwitch) adminSwitch.classList.remove('hidden');
+                  const topNavSwitch = document.getElementById('top-nav-switch');
+                  if (topNavSwitch) topNavSwitch.classList.remove('hidden');
+                  const bannerMgmtBlock = document.getElementById('details-store-banner');
+                  if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
+              }
+              if (userRole === 'admin') {
+                  const storeMgmtBlock = document.getElementById('details-store-management');
+                  if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
+              }
+          } catch(e) {}
+      }
+
+      // 2. 立即背景發送讀取公開活動的請求
+      window.loadUserActivities();
+
+      // 3. 背景非同步驗證 (同時更新最新權限到本地快取)
+      window.fetchAPI('checkUser', { userId: profile.userId }, true).then(checkRes => {
+          if (checkRes && checkRes.isRegistered) {
+              currentUser = checkRes.info;
+              userRole = currentUser.role || 'user';
+              
+              // 將最新權限寫入快取，下次進來無須等待
+              localStorage.setItem(cacheKey, JSON.stringify(currentUser));
+
+              if (userRole === 'store' || userRole === 'admin') {
+                  currentNetworkId = profile.userId; 
+              } else {
+                  currentNetworkId = currentUser.networkId || 'admin'; 
+              }
+
+              hasAdminRights = (userRole === 'admin' || userRole === 'store');
+              currentViewMode = 'user'; 
+
+              const elUserName = document.getElementById('user-name');
+              if(elUserName) elUserName.textContent = '歡迎回來，' + currentUser.name;
+              const elUserStatus = document.getElementById('user-status');
+              if(elUserStatus) elUserStatus.textContent = currentUser.industry || '一般會員';
+              document.getElementById('profile-name').value = currentUser.name || '';
+              document.getElementById('profile-phone').value = String(currentUser.phone || '').replaceAll(String.fromCharCode(8203), '').replaceAll("'", "");
+              document.getElementById('profile-industry').value = currentUser.industry || '';
+              document.getElementById('profile-birthday').value = currentUser.birthday || '';
+              
+              window.loadAllData().then(() => {
+                  let isMyCardPrivate = false;
+                  currentUserCard = allCards.find(c => String(c['LINE ID']).trim() === profile.userId || String(c.userId).trim() === profile.userId);
+                  
+                  if (!currentUserCard && currentUser && currentUser.phone && currentUser.name) {
+                      const myPhoneClean = String(currentUser.phone).replace(/[^0-9]/g, '');
+                      const myName = String(currentUser.name).trim();
+                      
+                      if (myPhoneClean && myName) {
+                          const matchedCard = allCards.find(c => {
+                              const cardName = String(c['姓名'] || '').trim();
+                              const cardPhone1 = String(c['手機號碼'] || '').replace(/[^0-9]/g, '');
+                              const cardPhone2 = String(c['公司電話'] || '').replace(/[^0-9]/g, '');
+                              const cardUid = String(c['LINE ID'] || '').trim();
+                              const isUnbound = cardUid === '' || cardUid === 'undefined';
+                              
+                              return isUnbound && cardName === myName && (cardPhone1 === myPhoneClean || cardPhone2 === myPhoneClean);
+                          });
+                          
+                          if (matchedCard) {
+                              currentUserCard = matchedCard;
+                              matchedCard['LINE ID'] = profile.userId; 
+                              
+                              window.fetchAPI('updateCard', {
+                                  rowId: matchedCard.rowId,
+                                  data: { 'LINE ID': profile.userId }
+                              }, true);
+                          }
+                      }
+                  }
+
+                  if (currentUserCard && currentUserCard['自訂名片設定']) {
+                      try { isMyCardPrivate = JSON.parse(currentUserCard['自訂名片設定']).isPrivate === true; } catch(e) {}
+                  }
+                  
+                  window.initMyECard();
+
+                  const matchmakerUi = document.getElementById('matchmaker-ui');
+                  const privacyLock = document.getElementById('privacy-lock-container');
+                  const privacyToggle = document.getElementById('fate-privacy-toggle');
+                  if (privacyToggle) privacyToggle.checked = !isMyCardPrivate;
+                  if (isMyCardPrivate && !hasAdminRights) {
+                      if (matchmakerUi) matchmakerUi.classList.add('hidden');
+                      if (privacyLock) privacyLock.classList.remove('hidden');
+                  } else {
+                      if (matchmakerUi) matchmakerUi.classList.remove('hidden');
+                      if (privacyLock) privacyLock.classList.add('hidden');
+                  }
+                  window.checkDatabaseStatus();
+              });
+
+              // 背景確認權限後，二次確保 UI 解鎖
+              if (hasAdminRights) {
+                  const adminSwitch = document.getElementById('admin-switch-container');
+                  if (adminSwitch) adminSwitch.classList.remove('hidden');
+                  const topNavSwitch = document.getElementById('top-nav-switch');
+                  if (topNavSwitch) topNavSwitch.classList.remove('hidden');
+                  const bannerMgmtBlock = document.getElementById('details-store-banner');
+                  if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
+              }
+              if (currentUser?.role === 'admin') {
+                  const storeMgmtBlock = document.getElementById('details-store-management');
+                  if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
+              }
+              
+          } else {
+              window.goPage('register');
+          }
+      }).catch(err => {
+          console.error("Auth check failed", err);
+      });
+
+    } catch (err) {
+      console.error("Init failed", err);
+      if (err.message && err.message.includes("channel not found")) {
+          window.showToast("⚠️ LIFF 初始化失敗：找不到 Channel。請確認 LIFF ID 是否正確，且網域已綁定 Endpoint URL。", true);
+      } else {
+          window.showToast('⚠️ 系統初始化失敗：' + err.message, true);
+      }
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', init);
+</script>
+
 </body>
 </html>
