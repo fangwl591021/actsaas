@@ -234,7 +234,7 @@
         </summary>
         <div class="p-5 pt-0 border-t border-slate-50 space-y-4">
           <p class="text-xs text-slate-500 font-bold mb-2 mt-2">設定您專屬的活動通首頁看板 (支援 JPG/PNG/GIF)</p>
-          <div class="w-full aspect-[3/1] rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-slate-900 relative mb-4">
+          <div class="w-full aspect-[3/1] rounded-none overflow-hidden shadow-sm border border-slate-100 bg-slate-900 relative mb-4">
               <img id="setting-preview-banner" src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80" alt="Banner Preview" class="w-full h-full object-cover">
           </div>
           <div class="flex gap-2 items-center">
@@ -287,12 +287,12 @@
       
       <!-- 首頁 Banner 區塊 (支援 GIF 與靜態圖片) -->
       <div class="mx-1 mt-2 flex flex-col gap-3">
-        <div class="w-full aspect-[21/9] sm:aspect-[3/1] rounded-3xl overflow-hidden shadow-sm border border-slate-100 bg-slate-900 relative">
+        <div class="w-full aspect-[21/9] sm:aspect-[3/1] rounded-none overflow-hidden shadow-sm border border-slate-100 bg-slate-900 relative">
             <img id="home-main-banner" src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80" alt="Main Banner" class="w-full h-full object-cover">
         </div>
         
         <!-- YouTube 影片區塊 (動態顯示，極輕量設計) -->
-        <div id="home-youtube-container" class="hidden w-full aspect-video rounded-3xl overflow-hidden shadow-sm border border-slate-100 bg-slate-100">
+        <div id="home-youtube-container" class="hidden w-full aspect-video rounded-none overflow-hidden shadow-sm border border-slate-100 bg-slate-100">
             <iframe id="home-youtube-iframe" class="w-full h-full" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
         </div>
       </div>
@@ -1020,7 +1020,7 @@
       }
 
       try {
-          await window.fetchAPI('updateECardConfig', { rowId: currentUserCard.rowId, config }, true);
+          await window.fetchAPI('updateCard', { rowId: currentUserCard.rowId, data: { '自訂名片設定': JSON.stringify(config) } }, true);
           currentUserCard['自訂名片設定'] = JSON.stringify(config);
           window.showToast(config.isPrivate ? '已切換為私人模式' : '✅ 已公開名片，解鎖配對功能');
 
@@ -1083,7 +1083,7 @@
               throw new Error('無法取得配對結果');
           }
       } catch(e) {
-          window.showToast('配對失敗：' + e.message, true);
+          window.showToast('配配對失敗：' + e.message, true);
       } finally {
           if (btn) { btn.innerHTML = oriHtml; btn.disabled = false; }
       }
@@ -1217,7 +1217,10 @@
       if (ytInput) cfg.homeYoutube = ytInput.value.trim();
 
       try {
-          await window.fetchAPI('updateECardConfig', { rowId: currentUserCard.rowId, config: cfg }, true);
+          await window.fetchAPI('updateCard', {
+              rowId: currentUserCard.rowId,
+              data: { '自訂名片設定': JSON.stringify(cfg), '名片圖檔': cfg.imgUrl || currentUserCard['名片圖檔'] || '' }
+          }, true);
           currentUserCard['自訂名片設定'] = JSON.stringify(cfg);
           window.showToast('✅ 首頁 Banner 與影片已更新！');
           window.updateHomeBanner();
@@ -1425,7 +1428,10 @@
     };
     
     try {
-        await window.fetchAPI('updateECardConfig', { rowId: currentCard.rowId, config }, true);
+        await window.fetchAPI('updateCard', {
+            rowId: currentCard.rowId,
+            data: { '自訂名片設定': JSON.stringify(config), '名片圖檔': config.imgUrl || '' }
+        }, true);
         currentCard['自訂名片設定'] = JSON.stringify(config);
         currentCard['名片圖檔'] = config.imgUrl || '';
         if (!isSilent) window.showToast('✅ 數位名片設定已儲存！');
@@ -1689,7 +1695,10 @@
       };
 
       try {
-          await window.fetchAPI('updateECardConfig', { rowId: currentUserCard.rowId, config }, true);
+          await window.fetchAPI('updateCard', {
+              rowId: currentUserCard.rowId,
+              data: { '自訂名片設定': JSON.stringify(config), '名片圖檔': config.imgUrl || '' }
+          }, true);
           currentUserCard['自訂名片設定'] = JSON.stringify(config);
           currentUserCard['名片圖檔'] = config.imgUrl || '';
           
