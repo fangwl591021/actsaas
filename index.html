@@ -1153,11 +1153,22 @@
   };
 
   window.saveStoreBanner = async function(event) {
+      const btn = event.currentTarget || document.getElementById('btn-save-store-banner');
+      
+      // [AA局部修正] 點擊時主動重新核對名片，解決非同步載入過慢的時間差問題
+      if (!currentUserCard && currentUserProfile) {
+          currentUserCard = allCards.find(c => String(c['LINE ID']).trim() === currentUserProfile.userId || String(c.userId).trim() === currentUserProfile.userId);
+      }
+
       if (!currentUserCard) {
-          window.showToast('請先完成「我的專屬名片」設定，才能儲存 Banner', true);
+          if (allCards.length === 0) {
+              window.showToast('⏳ 背景資料仍在同步中，請稍候幾秒再按儲存', true);
+          } else {
+              window.showToast('⚠️ 找不到名片綁定紀錄。請先至「我的專屬名片」點擊生成', true);
+          }
           return;
       }
-      const btn = event.currentTarget || document.getElementById('btn-save-store-banner');
+
       const oriHtml = btn.innerHTML;
       btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">refresh</span> 儲存中...';
       btn.disabled = true;
