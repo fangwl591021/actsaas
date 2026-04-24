@@ -2780,18 +2780,32 @@
 
         window.loadUserActivities();
 
+        // 在取得權限後，主動解除 DOM 隱藏，解決需點擊 2 次才展開的問題
         if (hasAdminRights) {
             const adminSwitch = document.getElementById('admin-switch-container');
             if (adminSwitch) adminSwitch.classList.remove('hidden');
             const topNavSwitch = document.getElementById('top-nav-switch');
             if (topNavSwitch) topNavSwitch.classList.remove('hidden');
+            
+            const bannerMgmtBlock = document.getElementById('details-store-banner');
+            if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
+        }
+        
+        if (currentUser?.role === 'admin') {
+            const storeMgmtBlock = document.getElementById('details-store-management');
+            if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
         }
         
       } else {
         window.goPage('register');
       }
     } catch (err) {
-      window.showToast('⚠️ 初始化失敗：' + err.message, true);
+      console.error("Init failed", err);
+      if (err.message && err.message.includes("channel not found")) {
+          window.showToast("⚠️ LIFF 初始化失敗：找不到 Channel。請確認 LIFF ID 是否正確，且網域已綁定 Endpoint URL。", true);
+      } else {
+          window.showToast('⚠️ 初始化失敗：' + err.message, true);
+      }
     }
   }
 
