@@ -795,7 +795,7 @@
 </div>
 
 <script>
-  const LIFF_ID = "2009886448-orTpVfgu"; 
+  const LIFF_ID = "2009367829-gB5q4gLt"; 
   const WORKER_URL = "https://line-engine.fangwl591021.workers.dev";
 
   // 定義用量限制 (依據角色權限)
@@ -2312,98 +2312,123 @@
        cropperInstance.destroy();
        cropperInstance = null;
     }
+    // 防呆：關閉時把確認按鈕的事件切回預設的名片辨識，避免事件污染
+    const confirmBtn = document.getElementById('btn-confirm-crop');
+    if (confirmBtn) confirmBtn.setAttribute('onclick', 'window.confirmCrop()');
   };
 
-  window.confirmCrop = async function() {
+  // ----------------------------------------------------
+  // 新增：全域變數紀錄當前上傳的目標 ID
+  window.currentUploadTargetId = null;
+
+  // 修改：將原本直接上傳的邏輯，改為「先開啟裁切器」
+  window.uploadCustomImageToR2 = function(inputEl, targetInputId) {
+    const file = inputEl.files[0];
+    if (!file) return;
+
+    window.currentUploadTargetId = targetInputId;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const cropperModal = document.getElementById('cropper-modal');
+      const cropperImage = document.getElementById('cropper-image');
+      cropperImage.src = e.target.result;
+      cropperModal.classList.remove('hidden');
+
+      // 動態替換裁切確認按鈕的事件，導向「一般圖片上傳壓縮邏輯」
+      const confirmBtn = document.getElementById('btn-confirm-crop');
+      if (confirmBtn) confirmBtn.setAttribute('onclick', 'window.confirmCustomImageCrop()');
+
+      if (cropperInstance) cropperInstance.destroy();
+
+      // 智慧判斷裁切比例：Banner 是 3:1，名片封面是 20:13，其餘自由裁切
+      let aspectRatio = NaN;
+      if (targetInputId === 'input-store-banner') aspectRatio = 3 / 1;
+      else if (targetInputId.includes('v1-img-url')) aspectRatio = 20 / 13;
+
+      cropperInstance = new Cropper(cropperImage, {
+        aspectRatio: aspectRatio,
+        viewMode: 1,
+        dragMode: 'move',
+        autoCropArea: 0.9,
+        restore: false,
+        guides: true,
+        center: true,
+        highlight: false,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
+        toggleDragModeOnDblclick: false,
+      });
+    };
+    reader.readAsDataURL(file);
+    inputEl.value = ''; // 清空 input 確保下次選同檔案會觸發
+  };
+
+  // 新增：專門處理一般圖片的裁切、500K壓縮與上傳
+  window.confirmCustomImageCrop = async function() {
     if (!cropperInstance) return;
     const btn = document.getElementById('btn-confirm-crop');
     btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px] align-middle">refresh</span> 處理中...';
     btn.disabled = true;
 
-    const canvas = cropperInstance.getCroppedCanvas({
-      maxWidth: 1200,
-      maxHeight: 1200,
+    // 壓縮與解析度控制：最大 1200px，限制在約 500K 左右
+    let size = 1200;
+    let quality = 0.85;
+    let base64Image = cropperInstance.getCroppedCanvas({
+      maxWidth: size,
+      maxHeight: size,
       imageSmoothingEnabled: true,
       imageSmoothingQuality: 'high',
-    });
-    const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+    }).toDataURL('image/jpeg', quality);
 
-    document.getElementById('cropper-modal').classList.add('hidden');
-    cropperInstance.destroy();
-    cropperInstance = null;
-    btn.innerHTML = '確認裁切';
-    btn.disabled = false;
-
-    window.showToast('⏳ AI 正在識別名片，請稍候...'); 
-    
-    try {
-      const result = await window.fetchAPI('recognizeCardWithGPT4o', { base64Image }, true);
-      if (result && !result.error) {
-        
-        if (window.cropTarget === 'mycard') {
-            result.userId = currentUserProfile.userId; 
-            if (!result['姓名']) result['姓名'] = currentUser.name;
-        }
-
-        const saveRes = await window.fetchAPI('saveCard', result, true);
-        window.showToast('✅ 識別建檔成功！');
-        await window.loadAllData();
-        
-        if (saveRes && saveRes.rowId) {
-          const newCard = allCards.find(c => String(c.rowId) === String(saveRes.rowId));
-          
-          if (window.cropTarget === 'mycard') {
-              currentUserCard = newCard;
-              window.initMyECard();
-              window.showToast('✅ 專屬名片掃描綁定成功！');
-          } else {
-              if (newCard) window.openCardDetail(newCard);
-          }
-        }
-      } else {
-        throw new Error(result.error || '識別失敗');
-      }
-    } catch(err) {
-      window.showToast('⚠️ ' + err.message, true);
+    // 迴圈動態降質，確保 Base64 字串長度低於 50 萬 (約 375KB)
+    while (base64Image.length > 500000 && quality > 0.3) {
+       quality -= 0.1;
+       base64Image = cropperInstance.getCroppedCanvas({ maxWidth: size, maxHeight: size }).toDataURL('image/jpeg', quality);
     }
-  };
-
-  window.uploadCustomImageToR2 = async function(inputEl, targetInputId) {
-    const file = inputEl.files[0];
-    if (!file) return;
     
+    if (base64Image.length > 800000) {
+        window.cancelCrop();
+        return window.showToast("⚠️ 圖片檔案過大無法壓縮，請選擇其他圖片", true);
+    }
+
+    // 關閉 Modal 並還原按鈕狀態
+    window.cancelCrop(); 
+
+    // 準備進行實際的 R2 上傳
+    const targetInputId = window.currentUploadTargetId;
     const targetInput = document.getElementById(targetInputId);
     const originalVal = targetInput.value;
     targetInput.value = '圖片上傳中...';
     targetInput.disabled = true;
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const res = await window.fetchAPI('uploadImageToR2', { base64Image: e.target.result }, true);
-        if (res && res.url) {
-          targetInput.value = res.url;
-          window.showToast('✅ 圖片已成功上傳');
-          if (targetInputId === 'my-v1-img-url') {
-              if (typeof window.updateMyECardPreview === 'function') window.updateMyECardPreview();
-          } else if (targetInputId === 'input-store-banner') {
-              document.getElementById('setting-preview-banner').src = res.url;
-          } else {
-              if (typeof window.updateECardPreview === 'function') window.updateECardPreview();
-          }
+    window.showToast('⏳ 圖片上傳中...');
+
+    try {
+      const res = await window.fetchAPI('uploadImageToR2', { base64Image: base64Image }, true);
+      if (res && res.url) {
+        targetInput.value = res.url;
+        window.showToast('✅ 圖片已成功上傳');
+        
+        // 根據 ID 更新對應的預覽畫面
+        if (targetInputId === 'my-v1-img-url') {
+            if (typeof window.updateMyECardPreview === 'function') window.updateMyECardPreview();
+        } else if (targetInputId === 'input-store-banner') {
+            document.getElementById('setting-preview-banner').src = res.url;
         } else {
-          throw new Error(res.error || '上傳失敗');
+            if (typeof window.updateECardPreview === 'function') window.updateECardPreview();
         }
-      } catch (err) {
-        targetInput.value = originalVal;
-        window.showToast('⚠️ ' + err.message, true);
-      } finally {
-        targetInput.disabled = false;
-        inputEl.value = ''; 
+      } else {
+        throw new Error(res.error || '上傳失敗');
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      targetInput.value = originalVal;
+      window.showToast('⚠️ ' + err.message, true);
+    } finally {
+      targetInput.disabled = false;
+    }
   };
+  // ----------------------------------------------------
 
   window.switchActiveTab = function(tabId) {
       ['quick', 'full', 'series'].forEach(id => {
