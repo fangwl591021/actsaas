@@ -1141,21 +1141,42 @@
 
   window.updateHomeBanner = function() {
       let bannerUrl = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80'; // 預設圖
+      let ytUrl = ''; // [AA修正] 新增 YT 變數
+      
       const ownerCard = allCards.find(c => String(c['LINE ID']).trim() === currentNetworkId);
       if (ownerCard && ownerCard['自訂名片設定']) {
           try {
               const cfg = JSON.parse(ownerCard['自訂名片設定']);
               if (cfg.homeBanner) bannerUrl = cfg.homeBanner;
+              if (cfg.homeYoutube) ytUrl = cfg.homeYoutube;
           } catch(e){}
       }
       const bannerImg = document.getElementById('home-main-banner');
       if (bannerImg) bannerImg.src = bannerUrl;
+      
+      // [AA修正] 處理 YouTube 智慧載入 (自動提取影片 ID 並內嵌)
+      const ytContainer = document.getElementById('home-youtube-container');
+      const ytIframe = document.getElementById('home-youtube-iframe');
+      if (ytContainer && ytIframe) {
+          if (ytUrl) {
+              const match = ytUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+              const videoId = match ? match[1] : null;
+              if (videoId) {
+                  ytIframe.src = 'https://www.youtube.com/embed/' + videoId + '?rel=0&modestbranding=1';
+                  ytContainer.classList.remove('hidden');
+              } else {
+                  ytContainer.classList.add('hidden');
+              }
+          } else {
+              ytContainer.classList.add('hidden');
+              ytIframe.src = '';
+          }
+      }
   };
 
   window.saveStoreBanner = async function(event) {
       const btn = event.currentTarget || document.getElementById('btn-save-store-banner');
       
-      // [AA局部修正] 點擊時主動重新核對名片，解決非同步載入過慢的時間差問題
       if (!currentUserCard && currentUserProfile) {
           currentUserCard = allCards.find(c => String(c['LINE ID']).trim() === currentUserProfile.userId || String(c.userId).trim() === currentUserProfile.userId);
       }
@@ -1177,14 +1198,16 @@
       try { cfg = JSON.parse(currentUserCard['自訂名片設定'] || '{}'); } catch(e){}
       
       const bannerInput = document.getElementById('input-store-banner');
-      if (bannerInput) {
-          cfg.homeBanner = bannerInput.value.trim();
-      }
+      if (bannerInput) cfg.homeBanner = bannerInput.value.trim();
+      
+      // [AA修正] 寫入 YT 網址
+      const ytInput = document.getElementById('input-store-youtube');
+      if (ytInput) cfg.homeYoutube = ytInput.value.trim();
 
       try {
           await window.fetchAPI('updateECardConfig', { rowId: currentUserCard.rowId, config: cfg }, true);
           currentUserCard['自訂名片設定'] = JSON.stringify(cfg);
-          window.showToast('✅ 首頁 Banner 已更新！');
+          window.showToast('✅ 首頁 Banner 與影片已更新！');
           window.updateHomeBanner();
       } catch(e) {
           window.showToast('⚠️ 儲存失敗：' + e.message, true);
@@ -1762,27 +1785,27 @@
             }
             window.userSocials = [];
             try { if(currentUser && currentUser.socials) window.userSocials = JSON.parse(currentUser.socials); } catch(e){}
-            window.renderUserSocials();
-            
-            const tgt = document.getElementById('setting-tg-token');
-            if (tgt) tgt.value = currentUser?.tgToken || '';
-            const tgc = document.getElementById('setting-tg-chatid');
-            if (tgc) tgc.value = currentUser?.tgChatId || '';
-            
+            // 以下為 goPage 函式中的片段替換
             const bannerMgmtBlock = document.getElementById('details-store-banner');
             if (currentUser?.role === 'admin' || currentUser?.role === 'store') {
                 if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
                 let currentBanner = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80';
+                let currentYoutube = ''; // [AA修正]
                 if (currentUserCard && currentUserCard['自訂名片設定']) {
                     try {
                         const cfg = JSON.parse(currentUserCard['自訂名片設定']);
                         if (cfg.homeBanner) currentBanner = cfg.homeBanner;
+                        if (cfg.homeYoutube) currentYoutube = cfg.homeYoutube; // [AA修正]
                     } catch(e){}
                 }
                 const bannerInput = document.getElementById('input-store-banner');
                 if(bannerInput) bannerInput.value = currentBanner;
                 const bannerPreview = document.getElementById('setting-preview-banner');
                 if(bannerPreview) bannerPreview.src = currentBanner;
+                
+                // [AA修正] 回填網址
+                const ytInput = document.getElementById('input-store-youtube');
+                if(ytInput) ytInput.value = currentYoutube;
             } else {
                 if (bannerMgmtBlock) bannerMgmtBlock.classList.add('hidden');
             }
