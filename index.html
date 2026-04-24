@@ -309,9 +309,13 @@
               <span class="material-symbols-outlined text-4xl text-[#06C755]">send_to_mobile</span>
               <span class="font-bold text-slate-700">發送我的名片</span>
           </button>
-          <button onclick="window.goPage('matchmake')" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:scale-95 transition-transform col-span-2">
+          <button onclick="window.goPage('matchmake')" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:scale-95 transition-transform">
               <span class="material-symbols-outlined text-4xl text-primary">psychology</span>
               <span class="font-bold text-slate-700">AI 智能配對</span>
+          </button>
+          <button onclick="window.goPage('my-activities')" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-3 active:scale-95 transition-transform">
+              <span class="material-symbols-outlined text-4xl text-orange-500">receipt_long</span>
+              <span class="font-bold text-slate-700">活動紀錄</span>
           </button>
       </div>
 
@@ -503,6 +507,21 @@
       <div id="match-results" class="hidden space-y-4">
         <h3 class="font-black text-lg text-slate-800 px-1 flex items-center gap-2"><span class="material-symbols-outlined text-primary">group</span>配對結果</h3>
         <div id="results-list" class="space-y-4"></div>
+      </div>
+    </div>
+
+    <!-- ==================== 我的活動紀錄 ==================== -->
+    <div id="page-my-activities" class="hidden animate-in slide-in-from-right-8 mx-1 pb-10">
+      <div class="flex items-center gap-3 mb-4 mt-2 px-1">
+        <button onclick="window.goPage('home')" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 active:scale-90 transition-transform shadow-sm">
+          <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+        </button>
+        <h2 class="text-xl font-black text-slate-800 tracking-tight">活動紀錄</h2>
+      </div>
+      <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+        <div id="my-activities-list" class="divide-y divide-slate-100">
+           <!-- 參加紀錄會在這裡動態渲染 -->
+        </div>
       </div>
     </div>
 
@@ -1862,6 +1881,7 @@
         if (page === 'admin-activities') window.loadAdminActivities();
         else if (page === 'home') window.loadUserActivities();
         else if (page === 'admin-stats') window.loadAdminStats();
+        else if (page === 'my-activities') window.loadMyActivities();
         else if (page === 'admin-settings') {
             if (currentUser) {
                 const pn = document.getElementById('profile-name');
@@ -1987,12 +2007,12 @@
                   const fee = act['金額'] > 0 ? 'NT$ ' + act['金額'] : '免費';
                   const img = act['宣傳圖'] || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80';
                   
-                  // 修正：正確解析 \n 為 <br>，避免出現字串 \n
+                  // 修正：正確解析字串中的 \n 以及真實的換行符號為 HTML 的 <br> 標籤
                   let rawDesc = act['活動說明'] || '';
                   const desc = String(rawDesc)
-                      .replace(/</g, '&lt;').replace(/>/g, '&gt;') // 基礎 XSS 防護
-                      .replace(/\\n/g, '<br>') // 處理字串型態的 \n
-                      .replace(/\n/g, '<br>'); // 處理真實換行符號
+                      .replace(/</g, '&lt;').replace(/>/g, '&gt;') // XSS 防護
+                      .replace(/\\n/g, '<br>')
+                      .replace(/\n/g, '<br>');
                       
                   const actId = window.escapeJS(act.rowId);
                   
@@ -2005,7 +2025,7 @@
                           '<h4 class="text-[16px] text-slate-800 font-bold leading-snug mb-1">' + title + '</h4>' +
                           '<div class="text-[13px] text-slate-500 mb-2">' + time + '</div>' +
                           (desc ? '<p class="text-[13px] text-slate-600 line-clamp-3 leading-relaxed mb-3">' + desc + '</p>' : '') +
-                          // 修正：報名按鈕改為綠色底、白色字
+                          // 修正：按鈕底色改為高轉換率的 LINE 綠色 (bg-[#06C755])
                           '<button type="button" onclick="window.userJoinActivity(\'' + actId + '\', \'' + title + '\', event)" class="mt-1 w-full py-3 bg-[#06C755] hover:bg-green-600 text-white rounded-xl text-[14px] font-bold active:scale-95 transition-all flex justify-center items-center gap-1 shadow-sm">' +
                               '立即報名' +
                           '</button>' +
@@ -2038,11 +2058,11 @@
           if(res && !res.error) {
               window.showToast('🎉 報名成功！');
               btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">check_circle</span> 已報名';
-              // 適應綠色按鈕的成功狀態
+              // 修正：針對綠色按鈕，將狀態成功切換為「已報名」的灰色不可點擊狀態
               btn.classList.replace('bg-[#06C755]', 'bg-slate-200');
               btn.classList.replace('hover:bg-green-600', 'hover:bg-slate-200');
               btn.classList.replace('text-white', 'text-slate-500');
-              btn.classList.remove('active:scale-95');
+              btn.classList.remove('active:scale-95', 'shadow-sm');
               btn.classList.add('cursor-not-allowed');
           } else {
               throw new Error(res.error || '報名失敗');
@@ -2103,6 +2123,40 @@
           }
       } catch (e) {
           listContainer.innerHTML = '<div class="text-center py-10 text-red-500 font-bold text-sm">載入失敗：' + e.message + '</div>';
+      }
+  };
+
+  window.loadMyActivities = async function() {
+      const container = document.getElementById('my-activities-list');
+      if(!container) return;
+      container.innerHTML = '<div class="text-center py-10"><span class="material-symbols-outlined animate-spin text-3xl text-slate-300">refresh</span><p class="text-sm text-slate-400 font-bold mt-2">載入紀錄中...</p></div>';
+
+      try {
+          const res = await window.fetchAPI('getUserActivities', { phone: currentUser?.phone || '' }, true);
+          if (res && res.length > 0) {
+              const reversedRes = res.reverse();
+              container.innerHTML = reversedRes.map(act => {
+                  const title = window.escapeJS(act['活動名稱'] || '未命名活動');
+                  const status = window.escapeJS(act['簽到'] === true || String(act['簽到']).toUpperCase() === 'TRUE' ? '已簽到' : '已報名');
+                  const statusColor = status === '已簽到' ? 'text-slate-400' : 'text-[#06C755]';
+                  const payStatus = act['繳費狀態'] === '已繳費' ? '<span class="ml-2 text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">已繳費</span>' : '';
+                  
+                  return '<div class="px-5 py-4 flex justify-between items-center active:bg-slate-50 transition-colors">' +
+                      '<div class="flex flex-col">' +
+                          '<span class="text-[15px] font-normal text-slate-800">' + title + '</span>' +
+                          '<div class="mt-1 flex items-center">' +
+                              '<span class="text-[12px] text-slate-400">狀態：<span class="' + statusColor + ' font-bold">' + status + '</span></span>' +
+                              payStatus +
+                          '</div>' +
+                      '</div>' +
+                      '<span class="material-symbols-outlined text-slate-300 text-[18px]">chevron_right</span>' +
+                  '</div>';
+              }).join('');
+          } else {
+              container.innerHTML = '<div class="text-center py-10 text-slate-400 text-[13px] font-normal">目前無活動紀錄</div>';
+          }
+      } catch(e) {
+          container.innerHTML = '<div class="text-center py-10 text-red-400 text-[13px] font-normal">無法載入紀錄：' + e.message + '</div>';
       }
   };
 
