@@ -196,10 +196,13 @@
 
           <!-- Edit State -->
           <div id="my-ecard-edit-state" class="hidden space-y-4">
-              <p class="text-xs text-slate-500 font-bold mb-2 flex justify-between items-center mt-2">
-                  <span>設定後即可在首頁一鍵發送數位名片</span>
-                  <button onclick="window.openCardDetail(currentUserCard)" class="text-blue-500 text-[12px] underline font-bold px-2 py-1 bg-blue-50 rounded-lg active:scale-95 transition-transform">編輯名片資料</button>
-              </p>
+              <div class="flex justify-between items-center mb-2 mt-2">
+                  <p class="text-xs text-slate-500 font-bold">設定後即可在首頁一鍵發送數位名片</p>
+                  <button onclick="window.showMyQRCode()" class="text-white text-[12px] font-bold px-2 py-1.5 bg-[#06C755] rounded-lg shadow-sm active:scale-95 transition-transform flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">qr_code_scanner</span> 顯示條碼</button>
+              </div>
+              <div class="flex justify-end mb-2">
+                  <button onclick="window.openCardDetail(currentUserCard)" class="text-blue-500 text-[12px] underline font-bold px-2 py-1 bg-blue-50 rounded-lg active:scale-95 transition-transform w-full text-center">編輯名片詳細文字資料</button>
+              </div>
               <div id="my-ecard-preview-area" class="rounded-2xl overflow-hidden shadow-lg border border-slate-100 mb-4 scale-[0.85] origin-top"></div>
               
               <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-4 -mt-6">
@@ -765,6 +768,24 @@
 
 </div>
 
+<!-- 專屬 QR Code 彈出視窗 -->
+<div id="qr-modal" class="hidden fixed inset-0 bg-slate-800/60 backdrop-blur-sm flex flex-col justify-center items-center z-[2000] p-4">
+    <div class="bg-white rounded-3xl p-6 flex flex-col items-center w-full max-w-[300px] shadow-2xl animate-in zoom-in-95">
+        <div class="w-full flex justify-between items-center mb-4">
+            <h3 class="font-black text-slate-800 text-lg">我的專屬行動名片</h3>
+            <button onclick="document.getElementById('qr-modal').classList.add('hidden')" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 active:scale-95"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div class="bg-slate-50 p-2 rounded-2xl border border-slate-100 mb-4 w-full aspect-square flex items-center justify-center relative">
+            <img id="qr-code-img" src="" class="w-full h-full object-contain hidden" alt="QR Code">
+            <div id="qr-loading" class="absolute inset-0 flex items-center justify-center bg-slate-50 rounded-2xl">
+                <span class="material-symbols-outlined animate-spin text-3xl text-primary">refresh</span>
+            </div>
+        </div>
+        <p class="text-[13px] text-slate-500 font-medium text-center leading-relaxed">請邀請對方使用 LINE 掃描上方條碼<br>立即互換名片並綁定商機推薦</p>
+        <button onclick="document.getElementById('qr-modal').classList.add('hidden'); window.shareMyCard(this);" class="mt-5 w-full py-3.5 bg-[#06C755] text-white rounded-xl font-bold text-[15px] shadow-sm active:scale-95 transition-transform flex justify-center items-center gap-2"><span class="material-symbols-outlined text-[20px]">send</span> 轉發名片連結</button>
+    </div>
+</div>
+
 <!-- 唯讀名片彈出視窗 -->
 <div id="readonly-card-modal" class="hidden fixed inset-0 bg-slate-800/60 backdrop-blur-sm flex flex-col justify-end animate-in fade-in duration-300 w-full max-w-md mx-auto left-0 right-0 z-[1050]">
   <div class="bg-white rounded-t-3xl overflow-hidden flex flex-col max-h-[85vh] shadow-2xl animate-in slide-in-from-bottom-8">
@@ -1195,12 +1216,28 @@
       }
 
       if (!currentUserCard) {
-          if (allCards.length === 0) {
-              window.showToast('⏳ 背景資料仍在同步中，請稍候幾秒再按儲存', true);
-          } else {
-              window.showToast('⚠️ 找不到名片綁定紀錄。請先至「我的專屬名片」點擊生成', true);
+          // 自動為 Store 用戶建立一份基礎名片，避免後續儲存報錯阻擋體驗
+          window.showToast('正在初始化您的商家專屬檔案...', false);
+          try {
+              const newCardPayload = {
+                  userId: currentUserProfile.userId,
+                  姓名: currentUser?.name || '商家代表',
+                  手機號碼: currentUser?.phone || '',
+                  服務項目: currentUser?.industry || '',
+                  自訂名片設定: '{}',
+                  名片圖檔: ''
+              };
+              const res = await window.fetchAPI('saveCard', newCardPayload, true);
+              if (res && res.rowId) {
+                  newCardPayload.rowId = res.rowId;
+                  allCards.unshift(newCardPayload);
+                  currentUserCard = newCardPayload;
+              } else {
+                  throw new Error('無法初始化檔案');
+              }
+          } catch(e) {
+              return window.showToast('⚠️ 找不到綁定紀錄。請先至「我的專屬名片」點擊生成', true);
           }
-          return;
       }
 
       const oriHtml = btn.innerHTML;
@@ -1219,7 +1256,6 @@
       try {
           await window.fetchAPI('updateCard', {
               rowId: currentUserCard.rowId,
-              // [AA安全防呆] 若未傳入 imgUrl，強制保留原有的名片圖檔，防止被清空
               data: { '自訂名片設定': JSON.stringify(cfg), '名片圖檔': cfg.imgUrl || currentUserCard['名片圖檔'] || '' }
           }, true);
           currentUserCard['自訂名片設定'] = JSON.stringify(cfg);
@@ -1231,6 +1267,35 @@
           btn.innerHTML = oriHtml;
           btn.disabled = false;
       }
+  };
+
+  // =============== 【QR Code 顯示函式】 ===============
+  window.showMyQRCode = function() {
+      if (!currentUserCard) {
+          window.showToast('請先建立專屬名片', true);
+          return;
+      }
+      const modal = document.getElementById('qr-modal');
+      const img = document.getElementById('qr-code-img');
+      const loading = document.getElementById('qr-loading');
+      
+      modal.classList.remove('hidden');
+      img.classList.add('hidden');
+      loading.classList.remove('hidden');
+      
+      // 包含推薦人與網段追蹤參數
+      let badgeUrl = 'https://liff.line.me/' + LIFF_ID + '?shareCardId=' + currentUserCard.rowId;
+      badgeUrl += '&ref=' + currentUserProfile.userId;
+      badgeUrl += '&net=' + currentNetworkId;
+      
+      // 採用穩定且免授權的 QuickChart API
+      const qrUrl = 'https://quickchart.io/qr?text=' + encodeURIComponent(badgeUrl) + '&size=300&margin=2';
+      
+      img.onload = () => {
+          loading.classList.add('hidden');
+          img.classList.remove('hidden');
+      };
+      img.src = qrUrl;
   };
 
   // =============== 【名片處理相關函式】 ===============
