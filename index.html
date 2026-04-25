@@ -2153,29 +2153,78 @@
       try {
           const res = await window.fetchAPI('getUserActivities', { phone: currentUser?.phone || '' }, true);
           if (res && res.length > 0) {
-              const reversedRes = res.reverse();
-              container.innerHTML = reversedRes.map(act => {
+              container.innerHTML = res.map(act => {
                   const title = window.escapeJS(act['活動名稱'] || '未命名活動');
-                  const status = window.escapeJS(act['簽到'] === true || String(act['簽到']).toUpperCase() === 'TRUE' ? '已簽到' : '已報名');
-                  const statusColor = status === '已簽到' ? 'text-slate-400' : 'text-[#06C755]';
-                  const payStatus = act['繳費狀態'] === '已繳費' ? '<span class="ml-2 text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">已繳費</span>' : '';
+                  const time = window.formatDisplayTime(act['開始時間']);
+                  const price = parseInt(act['金額']) || 0;
+                  const feeText = price > 0 ? `NT$ ${price}` : '免費';
                   
-                  return '<div class="px-5 py-4 flex justify-between items-center active:bg-slate-50 transition-colors">' +
-                      '<div class="flex flex-col">' +
-                          '<span class="text-[15px] font-normal text-slate-800">' + title + '</span>' +
-                          '<div class="mt-1 flex items-center">' +
-                              '<span class="text-[12px] text-slate-400">狀態：<span class="' + statusColor + ' font-bold">' + status + '</span></span>' +
-                              payStatus +
-                          '</div>' +
-                      '</div>' +
-                      '<span class="material-symbols-outlined text-slate-300 text-[18px]">chevron_right</span>' +
-                  '</div>';
+                  let status = window.escapeJS(act['簽到'] === true || String(act['簽到']).toUpperCase() === 'TRUE' ? '已簽到' : '已報名');
+                  let payStatus = act['繳費狀態'] || '';
+                  
+                  if (payStatus === '待對帳') status = '待對帳';
+                  if (payStatus === '已繳費') status = '報名成功 (已繳費)';
+                  
+                  // 顏色控管：簽到/繳費完成為灰色，待對帳為橘色，剛報名為官方綠
+                  const statusColor = (status === '已簽到' || status.includes('已繳費')) ? 'text-slate-400' : (status === '待對帳' ? 'text-orange-500' : 'text-[#06C755]');
+                  
+                  const rowId = window.escapeJS(act.rowId);
+
+                  // 動態對帳區塊
+                  let paymentHtml = '';
+                  if (payStatus === '未繳費' && price > 0) {
+                      paymentHtml = `
+                          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
+                              <input type="text" id="pay-${rowId}" maxlength="5" placeholder="輸入匯款帳號後五碼" class="flex-1 bg-slate-50 border border-slate-100 outline-none rounded-lg px-3 py-2 text-[13px] font-mono text-slate-700 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-[12px]">
+                              <button onclick="window.submitPayment('${rowId}')" class="shrink-0 bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-[13px] font-bold active:scale-95 transition-transform border border-blue-100">提交對帳</button>
+                          </div>
+                      `;
+                  }
+
+                  return `
+                      <div class="px-5 py-4 flex flex-col active:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
+                          <div class="flex justify-between items-start mb-1.5">
+                              <span class="text-[15px] font-normal text-slate-800 leading-snug pr-2">${title}</span>
+                              <span class="text-[12px] font-bold ${statusColor} shrink-0 mt-0.5">${status}</span>
+                          </div>
+                          <div class="flex items-center gap-4 text-[12px] text-slate-400 mt-1 font-normal">
+                              <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">schedule</span> ${time || '時間未定'}</span>
+                              <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">payments</span> ${feeText}</span>
+                          </div>
+                          ${paymentHtml}
+                      </div>
+                  `;
               }).join('');
           } else {
               container.innerHTML = '<div class="text-center py-10 text-slate-400 text-[13px] font-normal">目前無活動紀錄</div>';
           }
       } catch(e) {
           container.innerHTML = '<div class="text-center py-10 text-red-400 text-[13px] font-normal">無法載入紀錄：' + e.message + '</div>';
+      }
+  };
+
+  window.submitPayment = async function(rowId) {
+      const inputEl = document.getElementById('pay-' + rowId);
+      const last5 = inputEl ? inputEl.value.trim() : '';
+      if (!last5 || last5.length < 5) return window.showToast('請輸入完整的帳號後五碼', true);
+
+      const btn = inputEl.nextElementSibling;
+      const oriHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[16px]">refresh</span>';
+      btn.disabled = true;
+
+      try {
+          const res = await window.fetchAPI('submitPaymentInfo', { rowId: rowId, accountLast5: last5 }, true);
+          if (res && !res.error) {
+              window.showToast('✅ 已送出對帳資訊！');
+              window.loadMyActivities(); // 重整列表
+          } else {
+              throw new Error(res.error || '送出失敗');
+          }
+      } catch(e) {
+          window.showToast('⚠️ ' + e.message, true);
+          btn.innerHTML = oriHtml;
+          btn.disabled = false;
       }
   };
 
