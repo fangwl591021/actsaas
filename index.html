@@ -2277,37 +2277,42 @@
               const reversedRes = res.reverse();
               listContainer.innerHTML = reversedRes.map(act => {
                   const title = window.escapeJS(act['活動名稱'] || '未命名活動');
-                  const actId = window.escapeJS(act.rowId);
-                  const statusText = '上架'; 
-                  const statusColor = 'text-[#06C755]';
+                  const actId = window.escapeJS(act.rowId || act['活動ID']);
                   
-                  return '<div class="bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-100">' +
-                      '<div class="flex justify-between items-start mb-4">' +
-                          '<div class="w-8 h-1 bg-green-100 rounded-full mt-2"></div>' +
-                          '<div class="bg-slate-50 text-slate-600 px-3 py-1 rounded-xl text-[13px] font-bold flex items-center gap-1 border border-slate-100">' +
-                              '<span class="material-symbols-outlined text-[16px]">group</span> 0' +
+                  const statusText = act['狀態'] === '下架' ? '下架' : '上架'; 
+                  const isPublished = statusText === '上架';
+                  const statusColor = isPublished ? 'text-[#06C755]' : 'text-slate-400';
+                  
+                  const total = parseInt(act['報名人數']) || 0;
+                  const arrived = parseInt(act['已到人數']) || 0;
+                  const absent = total - arrived;
+                  
+                  return '<div class="bg-white rounded-[1.2rem] p-5 shadow-sm border border-slate-100 mb-4">' +
+                      '<div class="flex justify-between items-center mb-3">' +
+                          '<div class="flex items-center gap-2">' +
+                              '<label class="relative inline-flex items-center cursor-pointer">' +
+                                '<input type="checkbox" class="sr-only peer" ' + (isPublished ? 'checked' : '') + ' onchange="window.toggleActStatus(\'' + actId + '\', this.checked)">' +
+                                '<div class="w-10 h-[22px] bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[\'\'] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-[#06C755]"></div>' +
+                              '</label>' +
+                              '<span class="text-[13px] font-bold ' + statusColor + '" id="status-text-' + actId + '">' + statusText + '</span>' +
+                          '</div>' +
+                          '<div class="bg-slate-50 text-slate-600 px-2.5 py-1 rounded-lg text-[12px] font-bold flex items-center gap-1 border border-slate-100">' +
+                              '<span class="material-symbols-outlined text-[14px]">group</span> ' + total +
                           '</div>' +
                       '</div>' +
-                      '<h3 class="text-xl font-black text-slate-800 mb-6 tracking-tight">' + title + '</h3>' +
-                      '<div class="grid grid-cols-3 text-center mb-6 divide-x divide-slate-100">' +
-                          '<div>' +
-                              '<p class="text-[12px] font-bold text-slate-500 mb-1">狀態</p>' +
-                              '<p class="text-[14px] font-black ' + statusColor + '">' + statusText + '</p>' +
+                      '<h3 class="text-[17px] font-black text-slate-800 mb-4 tracking-tight leading-snug">' + title + '</h3>' +
+                      '<div class="flex items-center justify-around text-center mb-5">' +
+                          '<div class="flex flex-col items-center">' +
+                              '<p class="text-[11px] font-bold text-slate-400 mb-0.5">已到</p>' +
+                              '<p class="text-[18px] font-black text-[#06C755]">' + arrived + '</p>' +
                           '</div>' +
-                          '<div>' +
-                              '<p class="text-[12px] font-bold text-slate-500 mb-1">已到</p>' +
-                              '<p class="text-[14px] font-black text-[#06C755]">0</p>' +
-                          '</div>' +
-                          '<div>' +
-                              '<p class="text-[12px] font-bold text-slate-500 mb-1">取消</p>' +
-                              '<p class="text-[14px] font-black text-red-500">0</p>' +
+                          '<div class="w-[1px] h-8 bg-slate-100"></div>' +
+                          '<div class="flex flex-col items-center">' +
+                              '<p class="text-[11px] font-bold text-slate-400 mb-0.5">未到</p>' +
+                              '<p class="text-[18px] font-black text-slate-400">' + absent + '</p>' +
                           '</div>' +
                       '</div>' +
-                      '<div class="flex gap-3">' +
-                          '<button type="button" onclick="window.unpublishActivity(\'' + actId + '\', this)" class="flex-1 bg-red-50 text-red-600 py-3.5 rounded-2xl font-bold text-[14px] active:scale-95 transition-transform hover:bg-red-100">下架</button>' +
-                          // 接上 onclick 觸發名單列表
-                          '<button type="button" onclick="window.openCheckinList(\'' + actId + '\', \'' + title + '\')" class="flex-[1.5] bg-[#1e293b] text-white py-3.5 rounded-2xl font-bold text-[14px] active:scale-95 transition-transform shadow-md">名單核銷</button>' +
-                      '</div>' +
+                      '<button type="button" onclick="window.openCheckinList(\'' + actId + '\', \'' + title + '\')" class="w-full bg-[#1e293b] text-white py-3 rounded-xl font-bold text-[14px] active:scale-95 transition-transform shadow-sm">名單核銷</button>' +
                   '</div>';
               }).join('');
           } else {
@@ -2315,6 +2320,28 @@
           }
       } catch (e) {
           listContainer.innerHTML = '<div class="text-center py-10 text-red-500 font-bold text-sm">載入失敗：' + e.message + '</div>';
+      }
+  };
+
+  // --- 新增：切換上下架狀態 ---
+  window.toggleActStatus = async function(actId, isPublished) {
+      const statusTextEl = document.getElementById('status-text-' + actId);
+      const newStatus = isPublished ? '上架' : '下架';
+      
+      try {
+          const res = await window.fetchAPI('toggleActStatus', { activityId: actId, status: newStatus }, true);
+          if (res && !res.error) {
+              if (statusTextEl) {
+                  statusTextEl.textContent = newStatus;
+                  statusTextEl.className = 'text-[13px] font-bold ' + (isPublished ? 'text-[#06C755]' : 'text-slate-400');
+              }
+              window.showToast('✅ 活動已' + newStatus);
+          } else {
+              throw new Error(res.error || '狀態更新失敗');
+          }
+      } catch(e) {
+          window.showToast('⚠️ ' + e.message, true);
+          setTimeout(() => window.loadAdminActivities(), 500); // 發生錯誤自動還原
       }
   };
 
