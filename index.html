@@ -2393,7 +2393,7 @@
               ${paymentHtml}
           </div>
       `;
-      Alpine.store('ui').page = 'my-act-detail';
+      window.goPage('my-act-detail');
   };
 
   window.submitPaymentDetail = async function(rowId) {
