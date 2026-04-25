@@ -2304,7 +2304,6 @@
                   const title = window.escapeJS(act['活動名稱'] || '未命名活動');
                   const time = window.formatDisplayTime(act['開始時間']);
                   const price = parseInt(act['金額']) || 0;
-                  const feeText = price > 0 ? `NT$ ${price}` : '免費';
                   
                   let status = window.escapeJS(act['簽到'] === true || String(act['簽到']).toUpperCase() === 'TRUE' ? '已簽到' : '已報名');
                   let payStatus = act['繳費狀態'] || '';
@@ -2313,12 +2312,10 @@
                   if (payStatus === '已繳費') status = '報名成功 (已繳費)';
                   
                   const statusColor = (status === '已簽到' || status.includes('已繳費')) ? 'text-slate-400' : (status === '待對帳' ? 'text-orange-500' : 'text-[#06C755]');
-                  
                   const rowId = window.escapeJS(act.rowId);
 
-                  // 點擊整塊即可進入明細頁
                   return `
-                      <div onclick="window.showMyActivityDetail('${rowId}')" class="px-5 py-4 flex justify-between items-center active:bg-slate-50 transition-colors cursor-pointer">
+                      <div onclick="window.showMyActivityDetail('${rowId}')" class="px-5 py-4 flex justify-between items-center active:bg-slate-50 transition-colors cursor-pointer border-b border-slate-50 last:border-0">
                           <div class="flex flex-col">
                               <span class="text-[15px] font-normal text-slate-800 leading-snug">${title}</span>
                               <div class="mt-1 flex items-center gap-3 text-[12px]">
@@ -2370,8 +2367,13 @@
           `;
       }
 
-      // 極簡無框美學設計
-      document.getElementById('my-act-detail-content').innerHTML = `
+      const contentContainer = document.getElementById('my-act-detail-content');
+      if (!contentContainer) {
+          window.showToast('系統錯誤：找不到明細畫面元件', true);
+          return;
+      }
+
+      contentContainer.innerHTML = `
           <div class="w-full aspect-[16/9] bg-slate-100 mb-5 rounded-2xl overflow-hidden shadow-sm border border-slate-100">
               <img src="${img}" class="w-full h-full object-cover">
           </div>
@@ -2389,10 +2391,11 @@
                       <span class="font-normal">${feeText}</span>
                   </div>
               </div>
-              ${desc ? `<div class="text-[13px] text-slate-600 leading-relaxed font-normal mb-6">${desc}</div>` : ''}
+              ${desc ? '<div class="text-[13px] text-slate-600 leading-relaxed font-normal mb-6">' + desc + '</div>' : ''}
               ${paymentHtml}
           </div>
       `;
+      
       window.goPage('my-act-detail');
   };
 
@@ -2411,7 +2414,7 @@
           if (res && !res.error) {
               window.showToast('✅ 已送出對帳資訊！');
               await window.loadMyActivities(); 
-              window.showMyActivityDetail(rowId); // 重整畫面刷新狀態
+              window.showMyActivityDetail(rowId);
           } else {
               throw new Error(res.error || '送出失敗');
           }
