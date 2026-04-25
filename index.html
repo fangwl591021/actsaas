@@ -2276,7 +2276,8 @@
                       '</div>' +
                       '<div class="flex gap-3">' +
                           '<button type="button" onclick="window.unpublishActivity(\'' + actId + '\', this)" class="flex-1 bg-red-50 text-red-600 py-3.5 rounded-2xl font-bold text-[14px] active:scale-95 transition-transform hover:bg-red-100">下架</button>' +
-                          '<button type="button" class="flex-[1.5] bg-[#1e293b] text-white py-3.5 rounded-2xl font-bold text-[14px] active:scale-95 transition-transform shadow-md">名單核銷</button>' +
+                          // 接上 onclick 觸發名單列表
+                          '<button type="button" onclick="window.openCheckinList(\'' + actId + '\', \'' + title + '\')" class="flex-[1.5] bg-[#1e293b] text-white py-3.5 rounded-2xl font-bold text-[14px] active:scale-95 transition-transform shadow-md">名單核銷</button>' +
                       '</div>' +
                   '</div>';
               }).join('');
@@ -2285,6 +2286,97 @@
           }
       } catch (e) {
           listContainer.innerHTML = '<div class="text-center py-10 text-red-500 font-bold text-sm">載入失敗：' + e.message + '</div>';
+      }
+  };
+
+  // --- 新增：核銷名單撈取與狀態更新邏輯 ---
+  window.openCheckinList = async function(actId, actTitle) {
+      window.goPage('admin-checkin');
+      document.getElementById('checkin-act-title').textContent = actTitle;
+      const container = document.getElementById('admin-checkin-list');
+      const countDisplay = document.getElementById('checkin-count-display');
+      countDisplay.textContent = '...';
+      container.innerHTML = '<div class="text-center py-10"><span class="material-symbols-outlined animate-spin text-3xl text-slate-300">refresh</span><p class="text-sm text-slate-400 font-normal mt-2">載入名單中...</p></div>';
+
+      try {
+          const res = await window.fetchAPI('getRegistrantsByAct', { activityId: actId }, true);
+          if (res && res.length > 0) {
+              countDisplay.textContent = res.length;
+              container.innerHTML = res.map(r => {
+                  const name = window.escapeJS(r['姓名'] || '未知');
+                  const phone = window.escapeJS(r['電話'] || '');
+                  const isCheckedIn = (r['簽到'] === true || String(r['簽到']).toUpperCase() === 'TRUE');
+                  const payStatus = window.escapeJS(r['繳費狀態'] || '未繳費');
+                  const last5 = window.escapeJS(r['匯款後五碼'] || '');
+                  const rowId = window.escapeJS(r.rowId);
+
+                  // 簽到按鈕樣式 (綠色空心 vs 灰色填滿)
+                  const checkBtnClass = isCheckedIn 
+                      ? 'bg-slate-50 text-slate-400 border-slate-100' 
+                      : 'bg-white text-[#06C755] border-[#06C755]';
+                  const checkBtnText = isCheckedIn ? '已到' : '簽到';
+
+                  // 繳費狀態樣式 (待對帳特別標橘色)
+                  let payBtnClass = 'bg-white text-slate-500 border-slate-200';
+                  let payBtnText = payStatus;
+                  if (payStatus === '待對帳') {
+                      payBtnClass = 'bg-orange-50 text-orange-500 border-orange-200';
+                      payBtnText = '核款 (' + last5 + ')';
+                  } else if (payStatus === '已繳費') {
+                      payBtnClass = 'bg-slate-50 text-slate-400 border-slate-100';
+                  }
+
+                  return `
+                      <div class="px-4 py-3 flex justify-between items-center bg-white">
+                          <div class="flex flex-col min-w-0 pr-2">
+                              <span class="text-[15px] font-normal text-slate-800 truncate">${name}</span>
+                              <span class="text-[12px] text-slate-400 font-mono mt-0.5">${phone}</span>
+                          </div>
+                          <div class="flex items-center gap-2 shrink-0">
+                              <button onclick="window.toggleRegistrantStatus('${rowId}', '繳費狀態', '${payStatus === '已繳費' ? '未繳費' : '已繳費'}', this)" class="px-3 py-1.5 rounded-lg border text-[12px] font-normal active:scale-95 transition-all ${payBtnClass}">${payBtnText}</button>
+                              <button onclick="window.toggleRegistrantStatus('${rowId}', '簽到', ${!isCheckedIn}, this)" class="px-3 py-1.5 rounded-lg border text-[12px] font-normal active:scale-95 transition-all w-[60px] ${checkBtnClass}">${checkBtnText}</button>
+                          </div>
+                      </div>
+                  `;
+              }).join('');
+          } else {
+              countDisplay.textContent = '0';
+              container.innerHTML = '<div class="text-center py-10 text-slate-400 text-[13px] font-normal">尚無報名資料</div>';
+          }
+      } catch(e) {
+          container.innerHTML = '<div class="text-center py-10 text-red-400 text-[13px] font-normal">載入失敗：' + e.message + '</div>';
+      }
+  };
+
+  window.toggleRegistrantStatus = async function(rowId, field, newValue, btnEl) {
+      const oriHtml = btnEl.innerHTML;
+      btnEl.innerHTML = '<span class="material-symbols-outlined animate-spin text-[14px]">refresh</span>';
+      btnEl.disabled = true;
+
+      try {
+          const res = await window.fetchAPI('updateRegistrantStatus', { rowId: rowId, field: field, value: newValue }, true);
+          if (res && !res.error) {
+              // 視覺熱更新，不重新抓資料庫以保持滑順
+              if (field === '簽到') {
+                  const isCheckedIn = (newValue === true || newValue === 'true');
+                  btnEl.className = 'px-3 py-1.5 rounded-lg border text-[12px] font-normal active:scale-95 transition-all w-[60px] ' + (isCheckedIn ? 'bg-slate-50 text-slate-400 border-slate-100' : 'bg-white text-[#06C755] border-[#06C755]');
+                  btnEl.innerHTML = isCheckedIn ? '已到' : '簽到';
+                  btnEl.setAttribute('onclick', "window.toggleRegistrantStatus('" + rowId + "', '簽到', " + !isCheckedIn + ", this)");
+              } else if (field === '繳費狀態') {
+                  const isPaid = newValue === '已繳費';
+                  btnEl.className = 'px-3 py-1.5 rounded-lg border text-[12px] font-normal active:scale-95 transition-all ' + (isPaid ? 'bg-slate-50 text-slate-400 border-slate-100' : 'bg-white text-slate-500 border-slate-200');
+                  btnEl.innerHTML = isPaid ? '已繳費' : '未繳費';
+                  btnEl.setAttribute('onclick', "window.toggleRegistrantStatus('" + rowId + "', '繳費狀態', '" + (isPaid ? '未繳費' : '已繳費') + "', this)");
+              }
+              window.showToast('✅ 狀態已更新');
+          } else {
+              throw new Error(res.error || '更新失敗');
+          }
+      } catch (e) {
+          window.showToast('⚠️ ' + e.message, true);
+          btnEl.innerHTML = oriHtml;
+      } finally {
+          btnEl.disabled = false;
       }
   };
 
