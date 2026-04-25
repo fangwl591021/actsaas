@@ -756,6 +756,24 @@
       <div id="admin-activities-list" class="space-y-5"></div>
     </div>
 
+    <!-- ==================== 具體活動核銷名單 ==================== -->
+    <div id="page-admin-checkin" class="hidden animate-in slide-in-from-right-8 mx-1 pb-10">
+      <div class="flex items-center gap-3 mb-4 mt-2 px-1">
+        <button onclick="window.goPage('admin-activities')" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 active:scale-90 transition-transform shadow-sm">
+          <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+        </button>
+        <div class="flex-1 min-w-0">
+          <h2 class="text-lg font-black text-slate-800 tracking-tight truncate" id="checkin-act-title">名單核銷</h2>
+          <p class="text-[12px] text-slate-400 font-normal mt-0.5"><span id="checkin-count-display">0</span> 人已報名</p>
+        </div>
+      </div>
+      <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+        <div id="admin-checkin-list" class="divide-y divide-slate-100">
+           <!-- 名單會在這裡動態渲染 -->
+        </div>
+      </div>
+    </div>
+
     <!-- ==================== 營運統計獨立頁面 (Admin Stats) ==================== -->
     <div id="page-admin-stats" class="hidden animate-in fade-in pb-10 pt-2 mx-1">
       <div class="flex items-center gap-3 mb-6 px-1">
