@@ -1419,6 +1419,25 @@
         await window.fetchAPI('updateCard', { rowId: currentCard.rowId, data: updated }, true);
         currentCard = { ...currentCard, ...updated };
         window.showToast('✅ 資料已更新！');
+        
+        // [協同聯動] 若修改的是自己的專屬名片，同步更新系統會員主檔
+        if (currentUserProfile && currentUserCard && currentCard.rowId === currentUserCard.rowId) {
+            const newName = updated['姓名'] || '';
+            const newPhone = updated['手機號碼'] || '';
+            if (newName !== currentUser?.name || newPhone !== currentUser?.phone) {
+                window.fetchAPI('updateUserProfile', {
+                    userId: currentUserProfile.userId,
+                    data: { '姓名': newName, '手機': newPhone }
+                }, true);
+                if(currentUser) {
+                    currentUser.name = newName;
+                    currentUser.phone = newPhone;
+                    const elUserName = document.getElementById('user-name');
+                    if(elUserName) elUserName.textContent = '歡迎回來，' + newName;
+                }
+            }
+        }
+        
         window.openCardDetail(currentCard);
         await window.loadAllData();
     } catch(e) {
