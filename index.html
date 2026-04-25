@@ -2277,7 +2277,8 @@
               const reversedRes = res.reverse();
               listContainer.innerHTML = reversedRes.map(act => {
                   const title = window.escapeJS(act['活動名稱'] || '未命名活動');
-                  const actId = window.escapeJS(act.rowId || act['活動ID']);
+                  // 🚨 終極修正：強制優先抓取「活動ID」，避免被其他不明 rowId 覆蓋導致查無名單
+                  const actId = window.escapeJS(act['活動ID'] || act.rowId || '');
                   
                   const statusText = act['狀態'] === '下架' ? '下架' : '上架'; 
                   const isPublished = statusText === '上架';
