@@ -1711,11 +1711,16 @@
 
   window.renderECardSettings = function() {
     document.getElementById('v1-buttons-list').innerHTML = v1Buttons.map((btn, i) =>
-      '<div class="flex gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-100">' +
-      '<input type="color" class="w-9 h-9 p-0.5 bg-white border border-slate-200 rounded-lg cursor-pointer shrink-0 shadow-sm" title="設定按鈕顏色" value="' + (btn.c || '#06C755') + '" onchange="v1Buttons[' + i + '].c=this.value;window.updateECardPreview()">' +
-      '<input class="flex-1 w-full min-w-0 bg-white border-none rounded-lg p-2.5 text-[13px] font-bold shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none" placeholder="按鈕文字" value="' + window.escapeJS(btn.l||'') + '" oninput="v1Buttons[' + i + '].l=this.value;window.updateECardPreview()">' +
-      '<input class="flex-[1.5] w-full min-w-0 bg-white border-none rounded-lg p-2.5 text-[12px] font-mono shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none" placeholder="https://" value="' + window.escapeJS(btn.u||'') + '" oninput="v1Buttons[' + i + '].u=this.value">' +
-      '<button type="button" onclick="v1Buttons.splice(' + i + ',1);window.renderECardSettings();window.updateECardPreview()" class="text-red-400 bg-red-50 w-9 h-9 rounded-lg flex items-center justify-center shrink-0 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">delete</span></button></div>'
+      '<div class="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2">' +
+        // 上排：顏色 + 名稱 + 刪除
+        '<div class="flex gap-2 items-center">' +
+          '<input type="color" class="w-9 h-9 p-0.5 bg-white border border-slate-200 rounded-lg cursor-pointer shrink-0 shadow-sm" title="設定按鈕顏色" value="' + (btn.c || '#06C755') + '" onchange="v1Buttons[' + i + '].c=this.value;window.updateECardPreview()">' +
+          '<input class="flex-1 min-w-0 bg-white border-none rounded-lg p-2.5 text-[13px] font-bold shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none" placeholder="按鈕文字" value="' + window.escapeJS(btn.l||'') + '" oninput="v1Buttons[' + i + '].l=this.value;window.updateECardPreview()">' +
+          '<button type="button" onclick="v1Buttons.splice(' + i + ',1);window.renderECardSettings();window.updateECardPreview()" class="text-red-400 bg-red-50 w-9 h-9 rounded-lg flex items-center justify-center shrink-0 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">delete</span></button>' +
+        '</div>' +
+        // 下排：網址完整展開
+        '<input class="w-full bg-white border-none rounded-lg p-2.5 text-[12px] font-mono shadow-sm focus:ring-2 focus:ring-blue-500/30 outline-none" placeholder="https:// 或 tel:0912345678" value="' + window.escapeJS(btn.u||'') + '" oninput="v1Buttons[' + i + '].u=this.value">' +
+      '</div>'
     ).join('');
   };
 
