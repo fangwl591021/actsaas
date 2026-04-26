@@ -75,7 +75,7 @@
               <span class="material-symbols-outlined text-blue-500">manage_accounts</span> 用戶與商家權限
           </h2>
           <div class="flex gap-3">
-              <button onclick="loadUsers()" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 flex items-center gap-2 transition-colors">
+              <button onclick="refreshCurrentPage()" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 flex items-center gap-2 transition-colors">
                   <span class="material-symbols-outlined text-[18px]">refresh</span> 重新整理
               </button>
               <button onclick="window.open('index.html', '_blank')" class="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-slate-700 flex items-center gap-2 transition-colors">
@@ -87,7 +87,7 @@
       <!-- 內容視圖 -->
       <div class="flex-1 overflow-y-auto p-8 relative">
           
-          <!-- 用戶管理頁 -->
+          <!-- 1. 用戶管理頁 -->
           <div id="view-users" class="view-section">
               <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                   <table class="w-full text-left border-collapse">
@@ -106,23 +106,65 @@
               </div>
           </div>
 
-          <!-- 其他準備中頁面 -->
+          <!-- 2. 全站活動監控 -->
           <div id="view-activities" class="view-section hidden">
-              <div class="bg-white p-12 rounded-2xl border border-slate-200 text-center shadow-sm">
-                  <span class="material-symbols-outlined text-6xl text-slate-300 mb-4">build_circle</span>
-                  <h3 class="text-xl font-black text-slate-800">全站活動監控建置中</h3>
-                  <p class="text-slate-500 mt-2">將於下階段開放報表檢視功能</p>
+              <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                  <table class="w-full text-left border-collapse">
+                      <thead>
+                          <tr class="bg-slate-50 border-b border-slate-200">
+                              <th class="py-4 px-6 text-[13px] font-black text-slate-500 whitespace-nowrap">活動名稱</th>
+                              <th class="py-4 px-6 text-[13px] font-black text-slate-500 whitespace-nowrap">建立者 (店舖)</th>
+                              <th class="py-4 px-6 text-[13px] font-black text-slate-500 whitespace-nowrap text-center">狀態</th>
+                              <th class="py-4 px-6 text-[13px] font-black text-slate-500 whitespace-nowrap text-center">報名人數</th>
+                              <th class="py-4 px-6 text-[13px] font-black text-slate-500 whitespace-nowrap text-center">已簽到</th>
+                              <th class="py-4 px-6 text-[13px] font-black text-slate-500 whitespace-nowrap text-center">操作</th>
+                          </tr>
+                      </thead>
+                      <tbody id="admin-activities-table" class="divide-y divide-slate-100">
+                          <!-- 動態渲染 -->
+                      </tbody>
+                  </table>
               </div>
           </div>
           
-          <div id="view-stats" class="view-section hidden">
-              <div class="bg-white p-12 rounded-2xl border border-slate-200 text-center shadow-sm">
-                  <span class="material-symbols-outlined text-6xl text-slate-300 mb-4">build_circle</span>
-                  <h3 class="text-xl font-black text-slate-800">營運財務報表建置中</h3>
+          <!-- 3. 營運財務報表 -->
+          <div id="view-stats" class="view-section hidden space-y-6">
+              <!-- 頂部數據卡片 -->
+              <div class="grid grid-cols-3 gap-6">
+                  <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <div class="flex items-center gap-2 text-blue-600 mb-2"><span class="material-symbols-outlined icon-filled">groups</span><span class="font-bold text-sm">全站總報名數</span></div>
+                      <div class="text-4xl font-black text-slate-800" id="stat-total-regs">0</div>
+                  </div>
+                  <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <div class="flex items-center gap-2 text-[#06C755] mb-2"><span class="material-symbols-outlined icon-filled">payments</span><span class="font-bold text-sm">預估總營收</span></div>
+                      <div class="text-4xl font-black text-slate-800" id="stat-total-revenue">NT$ 0</div>
+                  </div>
+                  <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <div class="flex items-center gap-2 text-orange-500 mb-2"><span class="material-symbols-outlined icon-filled">event_available</span><span class="font-bold text-sm">執行中活動數</span></div>
+                      <div class="text-4xl font-black text-slate-800" id="stat-total-acts">0</div>
+                  </div>
+              </div>
+              
+              <!-- 數據明細表 -->
+              <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div class="p-5 border-b border-slate-100 bg-slate-50"><h3 class="font-black text-slate-800">各活動財務明細</h3></div>
+                  <table class="w-full text-left border-collapse">
+                      <thead>
+                          <tr class="bg-white border-b border-slate-200">
+                              <th class="py-4 px-6 text-[13px] font-bold text-slate-500 whitespace-nowrap">活動名稱</th>
+                              <th class="py-4 px-6 text-[13px] font-bold text-slate-500 whitespace-nowrap text-center">報名數</th>
+                              <th class="py-4 px-6 text-[13px] font-bold text-slate-500 whitespace-nowrap text-center">應收總額</th>
+                              <th class="py-4 px-6 text-[13px] font-bold text-slate-500 whitespace-nowrap text-center text-orange-500">待付人數</th>
+                          </tr>
+                      </thead>
+                      <tbody id="admin-stats-table" class="divide-y divide-slate-100">
+                          <!-- 動態渲染 -->
+                      </tbody>
+                  </table>
               </div>
           </div>
           
-          <!-- 批次名單匯入 (已實裝) -->
+          <!-- 4. 批次名單匯入 (已實裝) -->
           <div id="view-batch" class="view-section hidden">
               <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                   <div class="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
@@ -173,8 +215,14 @@
     const LIFF_ID = "2009886448-orTpVfgu"; 
     const WORKER_URL = "https://line-engine.fangwl591021.workers.dev/";
     let allSystemUsers = [];
+    let currentUserProfile = null;
+    let currentViewId = 'users';
 
+    // API 封裝 (強制帶入 admin 角色)
     async function fetchAPI(action, payload = {}) {
+        if (currentUserProfile) payload.userId = currentUserProfile.userId;
+        payload.role = 'admin'; 
+
         const res = await fetch(WORKER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -185,12 +233,19 @@
         return data.data || data; 
     }
 
+    // 防呆：安全跳脫
+    function escapeJS(str) {
+        return String(str || '').replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // 頁面切換與資料派發
     function switchPage(pageId, btnEl) {
+        currentViewId = pageId;
         document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
         document.getElementById('view-' + pageId).classList.remove('hidden');
         
         document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
-        btnEl.classList.add('active');
+        if(btnEl) btnEl.classList.add('active');
 
         const titleMap = {
             'users': '<span class="material-symbols-outlined text-blue-500">manage_accounts</span> 用戶與商家權限',
@@ -198,11 +253,19 @@
             'stats': '<span class="material-symbols-outlined text-blue-500">query_stats</span> 營運財務報表',
             'batch': '<span class="material-symbols-outlined text-blue-500">upload_file</span> 批次名單匯入'
         };
-        document.getElementById('page-title').innerHTML = titleMap[pageId];
+        document.getElementById('page-title').innerHTML = titleMap[pageId] || '';
         
-        if (pageId === 'users' && allSystemUsers.length === 0) loadUsers();
+        refreshCurrentPage();
     }
 
+    // 全域重新整理
+    function refreshCurrentPage() {
+        if (currentViewId === 'users') loadUsers();
+        else if (currentViewId === 'activities') loadGlobalActivities();
+        else if (currentViewId === 'stats') loadGlobalStats();
+    }
+
+    // ==================== 1. 用戶管理模組 ====================
     async function loadUsers() {
         const tbody = document.getElementById('admin-user-table');
         tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-slate-400 font-bold"><span class="material-symbols-outlined animate-spin text-2xl align-middle">refresh</span> 載入資料中...</td></tr>';
@@ -215,19 +278,19 @@
                     <tr class="hover:bg-slate-50 transition-colors group">
                         <td class="py-4 px-6 border-b border-slate-100">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black">${(u.name || '?')[0]}</div>
+                                <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black">${escapeJS(u.name || '?')[0]}</div>
                                 <div>
-                                    <p class="font-black text-slate-800 text-[15px]">${u.name || '未命名'}</p>
-                                    <p class="text-[12px] font-mono text-slate-500">${u.phone || '無電話'}</p>
+                                    <p class="font-black text-slate-800 text-[15px]">${escapeJS(u.name || '未命名')}</p>
+                                    <p class="text-[12px] font-mono text-slate-500">${escapeJS(u.phone || '無電話')}</p>
                                 </div>
                             </div>
                         </td>
-                        <td class="py-4 px-6 border-b border-slate-100 text-[12px] font-mono text-slate-400">${u.userId}</td>
+                        <td class="py-4 px-6 border-b border-slate-100 text-[12px] font-mono text-slate-400">${escapeJS(u.userId)}</td>
                         <td class="py-4 px-6 border-b border-slate-100 text-center">
-                            <span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md text-[12px] font-mono font-bold">${u.storeid || '無'}</span>
+                            <span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md text-[12px] font-mono font-bold">${escapeJS(u.storeid || '無')}</span>
                         </td>
                         <td class="py-4 px-6 border-b border-slate-100">
-                            <select onchange="changeRole('${u.userId}', this.value)" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20 outline-none cursor-pointer hover:border-blue-300 transition-colors">
+                            <select onchange="changeRole('${escapeJS(u.userId)}', this.value)" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20 outline-none cursor-pointer hover:border-blue-300 transition-colors">
                                 <option value="user" ${u.role === 'user' ? 'selected' : ''}>一般 User</option>
                                 <option value="store" ${u.role === 'store' ? 'selected' : ''}>商家 Store</option>
                                 <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>管理員 Admin</option>
@@ -247,10 +310,103 @@
             alert(`✅ 權限已成功更新為：${newRole}`);
         } catch (e) {
             alert(`⚠️ 更新失敗：${e.message}`);
-            loadUsers(); // 失敗則重整復原
+            loadUsers(); 
         }
     }
 
+    // ==================== 2. 全站活動監控模組 ====================
+    async function loadGlobalActivities() {
+        const tbody = document.getElementById('admin-activities-table');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-slate-400 font-bold"><span class="material-symbols-outlined animate-spin text-2xl align-middle">refresh</span> 讀取全站活動中...</td></tr>';
+        
+        try {
+            // role = 'admin' 已在 fetchAPI 中強制帶入，後端會回傳所有活動
+            const acts = await fetchAPI('getPublicActivities', {});
+            if (acts && acts.length > 0) {
+                tbody.innerHTML = acts.reverse().map(act => {
+                    const status = act['狀態'] || '上架';
+                    const isPublished = status === '上架';
+                    const statusColor = isPublished ? 'text-[#06C755] bg-green-50' : (status === '暫停' ? 'text-orange-500 bg-orange-50' : 'text-slate-400 bg-slate-100');
+                    const creatorId = escapeJS(act['建立者ID'] || '系統/未綁定');
+                    
+                    // 嘗試從全域清單反查店鋪名稱
+                    let creatorName = creatorId;
+                    if (allSystemUsers.length > 0) {
+                        const creatorUser = allSystemUsers.find(u => u.userId === creatorId || u.storeid === creatorId);
+                        if (creatorUser) creatorName = `${creatorUser.name} (${creatorUser.storeid || 'Admin'})`;
+                    }
+
+                    return `
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="py-4 px-6 border-b border-slate-100">
+                                <p class="font-black text-slate-800 text-[14px]">${escapeJS(act['活動名稱'] || '未命名活動')}</p>
+                                <p class="text-[11px] text-slate-400 mt-1">${escapeJS(act['活動ID'])}</p>
+                            </td>
+                            <td class="py-4 px-6 border-b border-slate-100 text-[12px] font-bold text-slate-600">${creatorName}</td>
+                            <td class="py-4 px-6 border-b border-slate-100 text-center">
+                                <span class="px-2.5 py-1 rounded-md text-[11px] font-black ${statusColor}">${status}</span>
+                            </td>
+                            <td class="py-4 px-6 border-b border-slate-100 text-center font-bold text-blue-600">${act['報名人數'] || 0}</td>
+                            <td class="py-4 px-6 border-b border-slate-100 text-center font-bold text-[#06C755]">${act['已到人數'] || 0}</td>
+                            <td class="py-4 px-6 border-b border-slate-100 text-center">
+                                <button onclick="toggleActStatusGlobal('${escapeJS(act['活動ID'])}', '${status === '下架' ? '上架' : '下架'}')" class="text-[12px] font-bold ${status === '下架' ? 'text-blue-500 hover:text-blue-700' : 'text-red-500 hover:text-red-700'} transition-colors">
+                                    ${status === '下架' ? '重新上架' : '強制下架'}
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-slate-400 font-bold">目前無任何活動資料</td></tr>';
+            }
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-10 text-red-500 font-bold">載入失敗：${e.message}</td></tr>`;
+        }
+    }
+
+    async function toggleActStatusGlobal(actId, newStatus) {
+        if(!confirm(`確定要將此活動狀態更改為「${newStatus}」嗎？`)) return;
+        try {
+            await fetchAPI('toggleActStatus', { activityId: actId, status: newStatus });
+            alert(`✅ 活動已更改為：${newStatus}`);
+            loadGlobalActivities();
+        } catch (e) {
+            alert(`⚠️ 更新失敗：${e.message}`);
+        }
+    }
+
+    // ==================== 3. 營運財務報表模組 ====================
+    async function loadGlobalStats() {
+        const tbody = document.getElementById('admin-stats-table');
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-slate-400 font-bold"><span class="material-symbols-outlined animate-spin text-2xl align-middle">refresh</span> 讀取報表中...</td></tr>';
+        
+        try {
+            const res = await fetchAPI('getAdminStats', {});
+            
+            // 更新上方三張大卡片
+            document.getElementById('stat-total-regs').textContent = res.totalRegistrants || 0;
+            document.getElementById('stat-total-revenue').textContent = `NT$ ${Number(res.totalRevenue || 0).toLocaleString()}`;
+            document.getElementById('stat-total-acts').textContent = res.activeActivitiesCount || 0;
+
+            // 更新下方表格
+            if (res.details && res.details.length > 0) {
+                tbody.innerHTML = res.details.map(d => `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="py-4 px-6 border-b border-slate-100 font-black text-slate-800 text-[14px]">${escapeJS(d.name)}</td>
+                        <td class="py-4 px-6 border-b border-slate-100 text-center font-bold text-blue-600">${d.count}</td>
+                        <td class="py-4 px-6 border-b border-slate-100 text-center font-black text-slate-800">$${Number(d.revenue).toLocaleString()}</td>
+                        <td class="py-4 px-6 border-b border-slate-100 text-center font-bold ${d.unpaid > 0 ? 'text-orange-500' : 'text-slate-300'}">${d.unpaid}</td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-slate-400 font-bold">目前無任何活動財務資料</td></tr>';
+            }
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-500 font-bold">報表載入失敗：${e.message}</td></tr>`;
+        }
+    }
+
+    // ==================== 4. 批次匯入模組 ====================
     let parsedBatchList = [];
 
     function parseBatchData() {
@@ -260,13 +416,10 @@
         
         rows.forEach(row => {
             if (!row.trim()) return;
-            // Excel 預設複製會使用 tab (\t) 進行欄位分隔
             const cols = row.split('\t');
             const name = cols[0] ? cols[0].trim() : '';
             const phone = cols[1] ? cols[1].trim() : '';
-            if (name) {
-                parsedBatchList.push({ name, phone });
-            }
+            if (name) parsedBatchList.push({ name, phone });
         });
         
         document.getElementById('batch-count-display').textContent = `已讀取 ${parsedBatchList.length} 筆`;
@@ -295,7 +448,7 @@
                 endTime: actEnd ? actEnd.replace('T', ' ') : '',
                 description: '由管理後台批次匯入產生',
                 imageUrl: '',
-                names: parsedBatchList, // 這裡傳遞包含 name 與 phone 的物件陣列
+                names: parsedBatchList, 
                 defaultIdentity: '來賓',
                 isBatch: false,
                 userId: 'admin'
@@ -304,7 +457,6 @@
             const res = await fetchAPI('bulkAddRegistrants', payload);
             alert(`🎉 成功匯入 ${parsedBatchList.length} 筆資料！系統僅用 2 秒完成極速建檔。`);
             
-            // 淨空表單
             document.getElementById('batch-act-name').value = '';
             document.getElementById('batch-excel-data').value = '';
             parsedBatchList = [];
@@ -319,6 +471,7 @@
         }
     }
 
+    // ==================== 初始化 (Edge Auth 支援) ====================
     async function init() {
         try {
             await liff.init({ liffId: LIFF_ID });
@@ -328,22 +481,48 @@
             }
 
             const profile = await liff.getProfile();
-            const checkRes = await fetchAPI('checkUser', { userId: profile.userId });
+            currentUserProfile = profile;
+            
+            // 🚀 邊緣快取極速渲染
+            const cacheKey = 'actmaster_admin_' + profile.userId;
+            const cachedData = localStorage.getItem(cacheKey);
+            let needAwait = true;
 
-            if (checkRes && checkRes.isRegistered) {
-                const user = checkRes.info;
-                if (user.role === 'admin') {
-                    // 放行進入後台
-                    document.getElementById('loading-screen').classList.add('hidden');
-                    document.getElementById('admin-avatar').src = profile.pictureUrl || '';
-                    document.getElementById('admin-name').textContent = user.name;
-                    loadUsers();
-                } else {
-                    document.getElementById('loading-text').innerHTML = '⚠️ 您沒有後台管理權限<br><span class="text-sm font-normal text-slate-500 mt-2 block">請使用手機版，或聯繫系統管理員</span>';
-                }
-            } else {
-                document.getElementById('loading-text').textContent = '⚠️ 請先從手機版註冊帳號';
+            if (cachedData) {
+                try {
+                    const user = JSON.parse(cachedData);
+                    if (user.role === 'admin') {
+                        document.getElementById('loading-screen').classList.add('hidden');
+                        document.getElementById('admin-avatar').src = profile.pictureUrl || '';
+                        document.getElementById('admin-name').textContent = user.name;
+                        loadUsers();
+                        needAwait = false;
+                    }
+                } catch(e) {}
             }
+
+            const checkPromise = fetchAPI('checkUser', { userId: profile.userId }).then(checkRes => {
+                if (checkRes && checkRes.isRegistered) {
+                    const user = checkRes.info;
+                    if (user.role === 'admin') {
+                        localStorage.setItem(cacheKey, JSON.stringify(user));
+                        if (needAwait) {
+                            document.getElementById('loading-screen').classList.add('hidden');
+                            document.getElementById('admin-avatar').src = profile.pictureUrl || '';
+                            document.getElementById('admin-name').textContent = user.name;
+                            loadUsers();
+                        }
+                    } else {
+                        document.getElementById('loading-screen').classList.remove('hidden');
+                        document.getElementById('loading-text').innerHTML = '⚠️ 您沒有後台管理權限<br><span class="text-sm font-normal text-slate-500 mt-2 block">請使用手機版，或聯繫系統管理員</span>';
+                    }
+                } else {
+                    document.getElementById('loading-text').textContent = '⚠️ 請先從手機版註冊帳號';
+                }
+            });
+            
+            if (needAwait) await checkPromise;
+
         } catch (e) {
             document.getElementById('loading-text').textContent = '初始化失敗：' + e.message;
         }
