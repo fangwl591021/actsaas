@@ -53,6 +53,12 @@
 </head>
 <body class="font-body text-text-main min-h-screen flex flex-col items-center">
 
+<!-- ==================== 登入與 Loading 遮罩 (防止畫面閃爍與權限錯亂) ==================== -->
+<div id="loading-screen" class="fixed inset-0 bg-white z-[1000] flex flex-col items-center justify-center transition-opacity duration-300">
+    <span class="material-symbols-outlined animate-spin text-5xl text-[#06C755] mb-4">autorenew</span>
+    <h2 id="loading-text" class="text-xl font-black text-slate-800">系統驗證中...</h2>
+</div>
+
 <!-- Toast 容器 -->
 <div id="toast-container" class="fixed top-16 left-0 right-0 z-[10000] flex flex-col items-center gap-2 pointer-events-none"></div>
 
@@ -62,7 +68,7 @@
   <nav class="fixed top-0 w-full max-w-md z-40 bg-white/90 backdrop-blur-xl px-5 py-4 flex justify-between items-center left-1/2 -translate-x-1/2 border-b border-slate-100">
     <div class="flex items-center gap-1.5">
         <span class="text-[20px] font-black text-slate-800 tracking-tight">LINE商機引擎</span>
-        <span id="header-admin-badge" class="hidden bg-[#1e293b] text-white text-[10px] px-2 py-0.5 rounded-full tracking-wider font-bold">ADMIN</span>
+        <span id="header-admin-badge" class="hidden bg-[#1e293b] text-white text-[10px] px-2 py-0.5 rounded-full tracking-wider font-bold shadow-sm">ADMIN</span>
     </div>
     
     <div class="flex items-center gap-3">
@@ -904,12 +910,12 @@
 
   // ==================== 前端共用函式區 (Browser Scope) ====================
   
-  // 安全跳脫函式：保護 Inline JS 參數，防堵含有換行、單引號等特殊字元的資料造成 SyntaxError
+  // 安全跳脫函式：保護 Inline JS 參數
   window.escapeJS = function(str) {
       return String(str || '').replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "\\n").replace(/\r/g, "");
   };
 
-  // 新增全域的時間格式化函式，將 ISO 轉為直覺閱讀格式
+  // 新增全域的時間格式化函式
   window.formatDisplayTime = function(val) {
       if (!val) return '';
       try {
@@ -983,7 +989,6 @@
 
   window.fetchAPI = async function(action, payload = {}, silent = false) {
     try {
-      // 全域注入 networkId 與 role，確保後端能正確隔離資料
       payload.networkId = currentNetworkId;
       payload.role = userRole;
       payload.userId = currentUserProfile?.userId;
@@ -1002,7 +1007,36 @@
     }
   };
 
-  // ------------------------- 新增補齊的前端互動函式 ------------------------- //
+  // ------------------------- 系統權限與渲染共用邏輯 ------------------------- //
+  
+  // 統一處理畫面權限解鎖 (防止閃爍)
+  window.applyUserPermissions = function() {
+      hasAdminRights = (userRole === 'admin' || userRole === 'store');
+      
+      const adminBadge = document.getElementById('header-admin-badge');
+      const adminSwitch = document.getElementById('admin-switch-container');
+      const topNavSwitch = document.getElementById('top-nav-switch');
+      const bannerMgmtBlock = document.getElementById('details-store-banner');
+      const storeMgmtBlock = document.getElementById('details-store-management');
+
+      if (hasAdminRights) {
+          if (adminBadge) adminBadge.classList.remove('hidden');
+          if (adminSwitch) adminSwitch.classList.remove('hidden');
+          if (topNavSwitch) topNavSwitch.classList.remove('hidden');
+          if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
+      } else {
+          if (adminBadge) adminBadge.classList.add('hidden');
+          if (adminSwitch) adminSwitch.classList.add('hidden');
+          if (topNavSwitch) topNavSwitch.classList.add('hidden');
+          if (bannerMgmtBlock) bannerMgmtBlock.classList.add('hidden');
+      }
+
+      if (userRole === 'admin') {
+          if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
+      } else {
+          if (storeMgmtBlock) storeMgmtBlock.classList.add('hidden');
+      }
+  };
 
   window.shareECardToLine = async function(btnId) {
       if (!currentCard) return window.showToast('無法取得名片資料', true);
@@ -1018,8 +1052,8 @@
           const flexMsg = await window.fetchAPI('buildFlexMessage', { 
               card: currentCard, 
               config: config, 
-              referrerId: currentUserProfile.userId, // 自己作為推薦人
-              networkId: currentNetworkId            // 傳遞當前的歸屬網段
+              referrerId: currentUserProfile.userId,
+              networkId: currentNetworkId
           }, true);
           if (flexMsg) {
               await window.triggerFlexSharing(flexMsg, "您收到一張數位名片");
@@ -1049,7 +1083,7 @@
           const flexMsg = await window.fetchAPI('buildFlexMessage', { 
               card: currentUserCard, 
               config: config, 
-              referrerId: currentUserProfile.userId, // 傳遞自己作為推薦人
+              referrerId: currentUserProfile.userId,
               networkId: currentNetworkId
           }, true);
           if (flexMsg) {
@@ -1209,8 +1243,6 @@
       }
   };
 
-  // ------------------------------------------------------------------------- //
-
   window.setDescAlign = function(align) {
       window.currentDescAlign = align;
       ['start', 'center', 'end'].forEach(a => {
@@ -1267,7 +1299,6 @@
       }
 
       if (!currentUserCard) {
-          // 自動為 Store 用戶建立一份基礎名片，避免後續儲存報錯阻擋體驗
           window.showToast('正在初始化您的商家專屬檔案...', false);
           try {
               const newCardPayload = {
@@ -1334,12 +1365,10 @@
       img.classList.add('hidden');
       loading.classList.remove('hidden');
       
-      // 包含推薦人與網段追蹤參數
       let badgeUrl = 'https://liff.line.me/' + LIFF_ID + '?shareCardId=' + currentUserCard.rowId;
       badgeUrl += '&ref=' + currentUserProfile.userId;
       badgeUrl += '&net=' + currentNetworkId;
       
-      // 採用穩定且免授權的 QuickChart API
       const qrUrl = 'https://quickchart.io/qr?text=' + encodeURIComponent(badgeUrl) + '&size=300&margin=2';
       
       img.onload = () => {
@@ -1350,7 +1379,6 @@
   };
 
   // =============== 【名片處理相關函式】 ===============
-  
   window.openCardDetailById = function(rowId) {
       const card = allCards.find(c => String(c.rowId) === String(rowId));
       if (card) window.openCardDetail(card);
@@ -1449,7 +1477,6 @@
         currentCard = { ...currentCard, ...updated };
         window.showToast('✅ 資料已更新！');
         
-        // [協同聯動] 若修改的是自己的專屬名片，同步更新系統會員主檔
         if (currentUserProfile && currentUserCard && currentCard.rowId === currentUserCard.rowId) {
             const newName = updated['姓名'] || '';
             const newPhone = updated['手機號碼'] || '';
@@ -1578,29 +1605,6 @@
         if (!isSilent && btn) { btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">save</span> 儲存'; btn.disabled = false; }
     }
     return config;
-  };
-
-  window.triggerFlexSharing = async function(flexContents, altText, successMsg = '🚀 數位名片已成功轉發！') {
-      if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
-      try {
-          const message = { type: "flex", altText: altText || "您收到一張數位名片", contents: flexContents };
-          const res = await liff.shareTargetPicker([message]);
-          if (res) {
-              window.showToast(successMsg);
-              setTimeout(() => { if (liff.isInClient()) liff.closeWindow(); }, 1500);
-          } else {
-              window.showToast('已取消傳送', true);
-          }
-      } catch (error) {
-          if (error.message && error.message.includes('not allowed')) {
-              window.showToast("⚠️ 系統權限已更新！即將為您重新登入...", true);
-              setTimeout(() => { liff.logout(); window.location.reload(); }, 2000);
-          } else {
-              let errMsg = error.message || JSON.stringify(error);
-              if (errMsg === '{}') errMsg = 'LINE 驗證不通過，請檢查連結是否皆為有效網址';
-              window.showToast('發送發生錯誤: ' + errMsg, true);
-          }
-      }
   };
 
   window.renderCardList = function(cards) {
@@ -1855,7 +1859,6 @@
       
       try {
           const res = await window.fetchAPI('getAllUsers', {}, true);
-          // 增強型陣列判斷，避免 API 回傳異常導致無法渲染
           if (res && !res.error && Array.isArray(res)) {
               allSystemUsers = res;
               window.renderStoreManagement();
@@ -1944,47 +1947,10 @@
             window.userSocials = [];
             try { if(currentUser && currentUser.socials) window.userSocials = JSON.parse(currentUser.socials); } catch(e){}
             
-            const bannerMgmtBlock = document.getElementById('details-store-banner');
-            if (currentUser?.role === 'admin' || currentUser?.role === 'store') {
-                if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
-                let currentBanner = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80';
-                let currentYoutube = ''; 
-                if (currentUserCard && currentUserCard['自訂名片設定']) {
-                    try {
-                        const cfg = JSON.parse(currentUserCard['自訂名片設定']);
-                        if (cfg.homeBanner) currentBanner = cfg.homeBanner;
-                        if (cfg.homeYoutube) currentYoutube = cfg.homeYoutube;
-                    } catch(e){}
-                }
-                const bannerInput = document.getElementById('input-store-banner');
-                if(bannerInput) bannerInput.value = currentBanner;
-                const bannerPreview = document.getElementById('setting-preview-banner');
-                if(bannerPreview) bannerPreview.src = currentBanner;
-                
-                const ytInput = document.getElementById('input-store-youtube');
-                if(ytInput) ytInput.value = currentYoutube;
-            } else {
-                if (bannerMgmtBlock) bannerMgmtBlock.classList.add('hidden');
-            }
-
-            const storeMgmtBlock = document.getElementById('details-store-management');
-            if (currentUser?.role === 'admin') {
-                if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
-                if (allSystemUsers.length === 0) window.loadAllUsers(); 
-            } else {
-                if (storeMgmtBlock) storeMgmtBlock.classList.add('hidden');
-            }
-
-            // 雙重保證：進入設定頁時強制確認後台切換按鈕顯示狀態
-            const adminSwitch = document.getElementById('admin-switch-container');
-            const topNavSwitch = document.getElementById('top-nav-switch');
-            if (currentUser?.role === 'admin' || currentUser?.role === 'store') {
-                if (adminSwitch) adminSwitch.classList.remove('hidden');
-                if (topNavSwitch) topNavSwitch.classList.remove('hidden');
-            } else {
-                if (adminSwitch) adminSwitch.classList.add('hidden');
-                if (topNavSwitch) topNavSwitch.classList.add('hidden');
-            }
+            // 使用共用權限函數，防止閃爍錯亂
+            window.applyUserPermissions();
+            
+            if (userRole === 'admin' && allSystemUsers.length === 0) window.loadAllUsers(); 
         }
     }
 
@@ -2044,6 +2010,7 @@
       try {
           const res = await window.fetchAPI('getPublicActivities', {}, true);
           if (res && res.length > 0) {
+              // 修復過濾：只顯示上架的
               const validActs = res.filter(a => a['狀態'] === '上架').reverse(); 
               if(validActs.length === 0) {
                    container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center shadow-sm border border-slate-100 text-slate-400 text-sm font-bold">近期無公開活動</div>';
@@ -2087,7 +2054,6 @@
   };
 
   window.userJoinActivity = async function(actId, actName, event) {
-      // 防呆：確認是否填寫姓名電話
       if (!currentUser || !currentUser.name || !currentUser.phone) {
           window.showToast('⚠️ 報名需要姓名與手機，已為您導向設定頁面', true);
           window.goPage('admin-settings');
@@ -2128,7 +2094,6 @@
       }
   };
 
-  // 全域變數供明細頁讀取
   window.myActivitiesData = [];
 
   window.loadMyActivities = async function() {
@@ -2279,7 +2244,7 @@
           const res = await window.fetchAPI('submitPaymentInfo', { rowId: rowId, accountLast5: last5 }, true);
           if (res && !res.error) {
               window.showToast('✅ 已送出對帳資訊！');
-              window.loadMyActivities(); // 重整列表
+              window.loadMyActivities(); 
           } else {
               throw new Error(res.error || '送出失敗');
           }
@@ -2633,16 +2598,12 @@
        cropperInstance.destroy();
        cropperInstance = null;
     }
-    // 防呆：關閉時把確認按鈕的事件切回預設的名片辨識，避免事件污染
     const confirmBtn = document.getElementById('btn-confirm-crop');
     if (confirmBtn) confirmBtn.setAttribute('onclick', 'window.confirmCrop()');
   };
 
-  // ----------------------------------------------------
-  // 新增：全域變數紀錄當前上傳的目標 ID
   window.currentUploadTargetId = null;
 
-  // 修改：將原本直接上傳的邏輯，改為「先開啟裁切器」
   window.uploadCustomImageToR2 = function(inputEl, targetInputId) {
     const file = inputEl.files[0];
     if (!file) return;
@@ -2656,13 +2617,11 @@
       cropperImage.src = e.target.result;
       cropperModal.classList.remove('hidden');
 
-      // 動態替換裁切確認按鈕的事件，導向「一般圖片上傳壓縮邏輯」
       const confirmBtn = document.getElementById('btn-confirm-crop');
       if (confirmBtn) confirmBtn.setAttribute('onclick', 'window.confirmCustomImageCrop()');
 
       if (cropperInstance) cropperInstance.destroy();
 
-      // 全面解除比例限制，改為自由伸縮裁切
       cropperInstance = new Cropper(cropperImage, {
         aspectRatio: NaN,
         viewMode: 1,
@@ -2678,17 +2637,15 @@
       });
     };
     reader.readAsDataURL(file);
-    inputEl.value = ''; // 清空 input 確保下次選同檔案會觸發
+    inputEl.value = ''; 
   };
 
-  // 新增：專門處理一般圖片的裁切、500K壓縮與上傳
   window.confirmCustomImageCrop = async function() {
     if (!cropperInstance) return;
     const btn = document.getElementById('btn-confirm-crop');
     btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px] align-middle">refresh</span> 處理中...';
     btn.disabled = true;
 
-    // 壓縮與解析度控制：最大 1200px，限制在約 500K 左右
     let size = 1200;
     let quality = 0.85;
     let base64Image = cropperInstance.getCroppedCanvas({
@@ -2698,7 +2655,6 @@
       imageSmoothingQuality: 'high',
     }).toDataURL('image/jpeg', quality);
 
-    // 迴圈動態降質，確保 Base64 字串長度低於 50 萬 (約 375KB)
     while (base64Image.length > 500000 && quality > 0.3) {
        quality -= 0.1;
        base64Image = cropperInstance.getCroppedCanvas({ maxWidth: size, maxHeight: size }).toDataURL('image/jpeg', quality);
@@ -2709,10 +2665,8 @@
         return window.showToast("⚠️ 圖片檔案過大無法壓縮，請選擇其他圖片", true);
     }
 
-    // 關閉 Modal 並還原按鈕狀態
     window.cancelCrop(); 
 
-    // 準備進行實際的 R2 上傳
     const targetInputId = window.currentUploadTargetId;
     const targetInput = document.getElementById(targetInputId);
     const originalVal = targetInput.value;
@@ -2727,7 +2681,6 @@
         targetInput.value = res.url;
         window.showToast('✅ 圖片已成功上傳');
         
-        // 根據 ID 更新對應的預覽畫面
         if (targetInputId === 'my-v1-img-url') {
             if (typeof window.updateMyECardPreview === 'function') window.updateMyECardPreview();
         } else if (targetInputId === 'input-store-banner') {
@@ -2745,7 +2698,6 @@
       targetInput.disabled = false;
     }
   };
-  // ----------------------------------------------------
 
   window.switchActiveTab = function(tabId) {
       ['quick', 'full', 'series'].forEach(id => {
@@ -3004,6 +2956,8 @@
     }
   };
 
+  // ==================== 初始化與權限鎖定 (防止閃爍與錯亂) ====================
+  
   async function init() {
     try {
       await liff.init({ liffId: LIFF_ID });
@@ -3012,73 +2966,81 @@
       window.urlRef = urlParams.get('ref') || '';
       window.urlNet = urlParams.get('net') || '';
 
-      if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
+      if (!liff.isLoggedIn()) { 
+          liff.login({ redirectUri: window.location.href }); 
+          return; 
+      }
       
-      // 1. 立即顯示首頁
-      window.goPage('home', true); 
-
       const profile = await liff.getProfile();
       currentUserProfile = profile;
       document.getElementById('avatar').src = profile.pictureUrl || '';
       document.getElementById('avatar').classList.remove('hidden');
       
-      // ========================================================
-      // [本地快取秒開機制修正]：修復遺漏 networkId 導致的背景 API 空轉問題
-      // ========================================================
       const cacheKey = 'actmaster_user_' + profile.userId;
       const cachedData = localStorage.getItem(cacheKey);
+      
+      let needAwaitFetch = true;
+
+      // 1. 若有快取，進行極速渲染 (Optimistic Rendering)
       if (cachedData) {
           try {
-              const parsed = JSON.parse(cachedData);
-              currentUser = parsed;
+              currentUser = JSON.parse(cachedData);
               userRole = currentUser.role || 'user';
               
-              // [重點修復] 必須從快取中判斷並還原 networkId，否則背景請求會失敗！
               if (userRole === 'store' || userRole === 'admin') {
                   currentNetworkId = profile.userId; 
               } else {
                   currentNetworkId = currentUser.networkId || 'admin'; 
               }
               
-              hasAdminRights = (userRole === 'admin' || userRole === 'store');
+              // 強制對齊所有介面的按鈕狀態
+              window.applyUserPermissions();
               
-              // 0.01 秒立刻解鎖後台按鈕
-              if (hasAdminRights) {
-                  const adminSwitch = document.getElementById('admin-switch-container');
-                  if (adminSwitch) adminSwitch.classList.remove('hidden');
-                  const topNavSwitch = document.getElementById('top-nav-switch');
-                  if (topNavSwitch) topNavSwitch.classList.remove('hidden');
-                  const bannerMgmtBlock = document.getElementById('details-store-banner');
-                  if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
-              }
-              if (userRole === 'admin') {
-                  const storeMgmtBlock = document.getElementById('details-store-management');
-                  if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
-              }
+              // 快取存在，0.01秒立即解鎖遮罩並載入首頁活動
+              document.getElementById('loading-screen').classList.add('opacity-0');
+              setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 300);
+              
+              window.goPage('home', true); 
+              window.loadUserActivities(); 
+              
+              needAwaitFetch = false; // 背景靜默驗證即可
           } catch(e) {}
       }
 
-      // 2. 立即背景發送讀取公開活動的請求
-      window.loadUserActivities();
-
-      // 3. 背景非同步驗證 (同時更新最新權限到本地快取)
-      window.fetchAPI('checkUser', { userId: profile.userId }, true).then(checkRes => {
+      // 2. 呼叫 GAS 背景驗證權限與資料
+      const checkPromise = window.fetchAPI('checkUser', { userId: profile.userId }, true).then(checkRes => {
           if (checkRes && checkRes.isRegistered) {
-              currentUser = checkRes.info;
-              userRole = currentUser.role || 'user';
+              const newRole = checkRes.info.role || 'user';
+              const roleChanged = (newRole !== userRole);
               
-              // 將最新權限寫入快取，下次進來無須等待
-              localStorage.setItem(cacheKey, JSON.stringify(currentUser));
-
+              currentUser = checkRes.info;
+              userRole = newRole;
+              
+              // 再次更新最高層級 NetworkId
               if (userRole === 'store' || userRole === 'admin') {
                   currentNetworkId = profile.userId; 
               } else {
                   currentNetworkId = currentUser.networkId || 'admin'; 
               }
 
-              hasAdminRights = (userRole === 'admin' || userRole === 'store');
-              currentViewMode = 'user'; 
+              // 寫入最新權限到快取
+              localStorage.setItem(cacheKey, JSON.stringify(currentUser));
+              
+              // 二次確認介面狀態鎖定
+              window.applyUserPermissions();
 
+              // 若之前沒有快取被擋在 Loading，現在解鎖
+              if (needAwaitFetch) {
+                  document.getElementById('loading-screen').classList.add('opacity-0');
+                  setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 300);
+                  window.goPage('home', true);
+                  window.loadUserActivities();
+              } else if (roleChanged) {
+                  // 如果權限在背景被管理員改了，靜默刷新活動列表
+                  window.loadUserActivities();
+              }
+
+              // 背景載入其他資料
               const elUserName = document.getElementById('user-name');
               if(elUserName) elUserName.textContent = '歡迎回來，' + currentUser.name;
               const elUserStatus = document.getElementById('user-status');
@@ -3092,10 +3054,10 @@
                   let isMyCardPrivate = false;
                   currentUserCard = allCards.find(c => String(c['LINE ID']).trim() === profile.userId || String(c.userId).trim() === profile.userId);
                   
+                  // 自動綁定未認領的名片邏輯
                   if (!currentUserCard && currentUser && currentUser.phone && currentUser.name) {
                       const myPhoneClean = String(currentUser.phone).replace(/[^0-9]/g, '');
                       const myName = String(currentUser.name).trim();
-                      
                       if (myPhoneClean && myName) {
                           const matchedCard = allCards.find(c => {
                               const cardName = String(c['姓名'] || '').trim();
@@ -3103,18 +3065,12 @@
                               const cardPhone2 = String(c['公司電話'] || '').replace(/[^0-9]/g, '');
                               const cardUid = String(c['LINE ID'] || '').trim();
                               const isUnbound = cardUid === '' || cardUid === 'undefined';
-                              
                               return isUnbound && cardName === myName && (cardPhone1 === myPhoneClean || cardPhone2 === myPhoneClean);
                           });
-                          
                           if (matchedCard) {
                               currentUserCard = matchedCard;
                               matchedCard['LINE ID'] = profile.userId; 
-                              
-                              window.fetchAPI('updateCard', {
-                                  rowId: matchedCard.rowId,
-                                  data: { 'LINE ID': profile.userId }
-                              }, true);
+                              window.fetchAPI('updateCard', { rowId: matchedCard.rowId, data: { 'LINE ID': profile.userId } }, true);
                           }
                       }
                   }
@@ -3138,32 +3094,26 @@
                   }
                   window.checkDatabaseStatus();
               });
-
-              // 背景確認權限後，二次確保 UI 解鎖
-              if (hasAdminRights) {
-                  const adminSwitch = document.getElementById('admin-switch-container');
-                  if (adminSwitch) adminSwitch.classList.remove('hidden');
-                  const topNavSwitch = document.getElementById('top-nav-switch');
-                  if (topNavSwitch) topNavSwitch.classList.remove('hidden');
-                  const bannerMgmtBlock = document.getElementById('details-store-banner');
-                  if (bannerMgmtBlock) bannerMgmtBlock.classList.remove('hidden');
-              }
-              if (currentUser?.role === 'admin') {
-                  const storeMgmtBlock = document.getElementById('details-store-management');
-                  if (storeMgmtBlock) storeMgmtBlock.classList.remove('hidden');
-              }
               
           } else {
+              // 尚未註冊
+              document.getElementById('loading-screen').classList.add('hidden');
               window.goPage('register');
           }
       }).catch(err => {
           console.error("Auth check failed", err);
       });
 
+      // 如果沒有快取，強制等待 GAS 回傳後才解除畫面鎖定
+      if (needAwaitFetch) {
+          await checkPromise;
+      }
+
     } catch (err) {
       console.error("Init failed", err);
+      document.getElementById('loading-screen').classList.add('hidden');
       if (err.message && err.message.includes("channel not found")) {
-          window.showToast("⚠️ LIFF 初始化失敗：找不到 Channel。請確認 LIFF ID 是否正確，且網域已綁定 Endpoint URL。", true);
+          window.showToast("⚠️ LIFF 初始化失敗：找不到 Channel。請確認 LIFF ID 是否正確。", true);
       } else {
           window.showToast('⚠️ 系統初始化失敗：' + err.message, true);
       }
