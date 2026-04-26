@@ -2804,7 +2804,40 @@
     const confirmBtn = document.getElementById('btn-confirm-crop');
     if (confirmBtn) confirmBtn.setAttribute('onclick', 'window.confirmCrop()');
   };
+window.recognizeMyCard = async function(inputEl) {
+      window.cropTarget = 'mycard';
+      const file = inputEl.files[0];
+      if (!file) return;
 
+      const role = currentUser?.role || 'user';
+      const limit = window.LIMITS[role].cards;
+      if (allCards.length >= limit) {
+          inputEl.value = '';
+          return window.showToast('用量限制：您的方案 (' + role + ') 最多只能掃描 ' + limit + ' 張名片，請聯絡管理員升級。', true);
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const cropperModal = document.getElementById('cropper-modal');
+        const cropperImage = document.getElementById('cropper-image');
+        cropperImage.src = e.target.result;
+        cropperModal.classList.remove('hidden');
+
+        // 切換確認按鈕指向專屬版本
+        const confirmBtn = document.getElementById('btn-confirm-crop');
+        if (confirmBtn) confirmBtn.setAttribute('onclick', 'window.confirmMyCardCrop()');
+
+        if (cropperInstance) cropperInstance.destroy();
+        cropperInstance = new Cropper(cropperImage, {
+          aspectRatio: NaN,
+          viewMode: 1, dragMode: 'move', autoCropArea: 0.9, restore: false,
+          guides: true, center: true, highlight: false, cropBoxMovable: true,
+          cropBoxResizable: true, toggleDragModeOnDblclick: false,
+        });
+      };
+      reader.readAsDataURL(file);
+      inputEl.value = ''; 
+  };
   window.currentUploadTargetId = null;
 
   window.uploadCustomImageToR2 = function(inputEl, targetInputId) {
