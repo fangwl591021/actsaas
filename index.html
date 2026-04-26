@@ -3526,6 +3526,32 @@ window.recognizeMyCard = async function(inputEl) {
                       if (privacyLock) privacyLock.classList.add('hidden');
                   }
                   window.checkDatabaseStatus();
+                window.checkDatabaseStatus();
+                  
+                  // ==================== 請在這裡貼上補充代碼 ====================
+                  const shareId = urlParams.get('shareCardId') || urlParams.get('claim');
+                  if (shareId) {
+                      const sharedCard = allCards.find(c => String(c.rowId) === String(shareId));
+                      if (sharedCard) {
+                          window.roCardData = sharedCard;
+                          let cfg = {};
+                          try { cfg = JSON.parse(sharedCard['自訂名片設定'] || '{}'); } catch(e){}
+                          document.getElementById('ro-card-container').innerHTML = window.getPreviewHTML(sharedCard, 'v1', {
+                              imgUrl: cfg.imgUrl || sharedCard['名片圖檔'],
+                              buttons: cfg.buttons || [],
+                              descAlign: cfg.descAlign || 'center',
+                              descColor: cfg.descColor || '#666666'
+                          });
+                          document.getElementById('readonly-card-modal').classList.remove('hidden');
+                      } else {
+                          window.showToast('⚠️ 找不到該名片，或無權限查看', true);
+                      }
+                  }
+                  // ==========================================================
+              });
+              
+          } else {
+              // 尚未註冊
               });
               
           } else {
