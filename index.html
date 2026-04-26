@@ -1857,7 +1857,32 @@
       if(document.getElementById('total-count')) document.getElementById('total-count').innerText = allCards.length;
       if(document.getElementById('missing-count')) document.getElementById('missing-count').innerText = missingCount;
   };
-  
+  window.checkDatabaseStatus();
+                  
+                  // ==================== 請在這裡貼上補充代碼 ====================
+                  const shareId = urlParams.get('shareCardId') || urlParams.get('claim');
+                  if (shareId) {
+                      const sharedCard = allCards.find(c => String(c.rowId) === String(shareId));
+                      if (sharedCard) {
+                          window.roCardData = sharedCard;
+                          let cfg = {};
+                          try { cfg = JSON.parse(sharedCard['自訂名片設定'] || '{}'); } catch(e){}
+                          document.getElementById('ro-card-container').innerHTML = window.getPreviewHTML(sharedCard, 'v1', {
+                              imgUrl: cfg.imgUrl || sharedCard['名片圖檔'],
+                              buttons: cfg.buttons || [],
+                              descAlign: cfg.descAlign || 'center',
+                              descColor: cfg.descColor || '#666666'
+                          });
+                          document.getElementById('readonly-card-modal').classList.remove('hidden');
+                      } else {
+                          window.showToast('⚠️ 找不到該名片，或無權限查看', true);
+                      }
+                  }
+                  // ==========================================================
+              });
+              
+          } else {
+              // 尚未註冊
   window.syncOldTags = async function(forceAll = false) {
       const targetContacts = forceAll ? allCards : allCards.filter(c => !c['個性'] || String(c['個性']).trim() === '' || String(c['個性']) === '待分析' || String(c['個性']) === 'undefined');
       if (targetContacts.length === 0) return window.showToast(forceAll ? '目前無名片資料' : '目前所有名片皆已包含標籤，無需補漏');
