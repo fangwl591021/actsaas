@@ -67,9 +67,9 @@
   <!-- 頂部導航列 -->
   <nav class="fixed top-0 w-full max-w-md z-40 bg-white/90 backdrop-blur-xl px-5 py-4 flex justify-between items-center left-1/2 -translate-x-1/2 border-b border-slate-100">
     <div class="flex items-center gap-1.5">
-        <span class="text-[20px] font-black text-slate-800 tracking-tight">LINE商機引擎</span>
-        <span id="header-admin-badge" class="hidden bg-[#1e293b] text-white text-[10px] px-2 py-0.5 rounded-full tracking-wider font-bold shadow-sm">ADMIN</span>
-    </div>
+    <span id="header-site-name" class="text-[20px] font-black text-slate-800 tracking-tight">LINE商機引擎</span>
+    <span id="header-admin-badge" class="hidden bg-[#1e293b] text-white text-[10px] px-2 py-0.5 rounded-full tracking-wider font-bold shadow-sm">ADMIN</span>
+</div>
     
     <div class="flex items-center gap-3">
         <img id="avatar" src="" class="w-8 h-8 rounded-full border border-slate-200 hidden object-cover shadow-sm">
@@ -242,10 +242,17 @@
           <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
         </summary>
         <div class="p-5 pt-0 border-t border-slate-50 space-y-4">
-          <p class="text-xs text-slate-500 font-bold mb-2 mt-2">設定您專屬的活動通首頁看板 (支援 JPG/PNG/GIF)</p>
-          <div class="w-full aspect-[3/1] rounded-none overflow-hidden shadow-sm border border-slate-100 bg-slate-900 relative mb-4">
-              <img id="setting-preview-banner" src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80" alt="Banner Preview" class="w-full h-full object-cover">
-          </div>
+
+  <!-- 新增：自訂系統名稱 -->
+  <div class="mt-3">
+      <label class="block text-[12px] text-slate-500 mb-1.5 font-bold">系統顯示名稱 <span class="text-slate-400 font-normal">(顯示於頂部，建議 4-10 字)</span></label>
+      <input id="input-site-name" maxlength="20" class="custom-input !py-3 !text-[15px]" placeholder="例如：勝利人脈引擎">
+  </div>
+
+  <p class="text-xs text-slate-500 font-bold mb-2 mt-2">設定您專屬的活動通首頁看板 (支援 JPG/PNG/GIF)</p>
+  <div class="w-full aspect-[3/1] rounded-none overflow-hidden shadow-sm border border-slate-100 bg-slate-900 relative mb-4">
+      <img id="setting-preview-banner" src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80" alt="Banner Preview" class="w-full h-full object-cover">
+  </div>
           <div class="flex gap-2 items-center">
               <input id="input-store-banner" class="custom-input !py-2.5 !px-3 font-mono text-[13px] !bg-slate-50" placeholder="https://" oninput="document.getElementById('setting-preview-banner').src=this.value">
               <button onclick="document.getElementById('file-store-banner').click()" class="shrink-0 bg-slate-800 text-white px-3 py-2.5 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition-transform shadow-sm">上傳</button>
@@ -1427,9 +1434,10 @@
       window.updateECardPreview();
   };
 
-  window.updateHomeBanner = function() {
+ window.updateHomeBanner = function() {
       let bannerUrl = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1000&q=80';
       let ytUrl = '';
+      let siteName = 'LINE商機引擎'; // 預設名稱
       
       const ownerCard = allCards.find(c => String(c['LINE ID']).trim() === currentNetworkId);
       if (ownerCard && ownerCard['自訂名片設定']) {
@@ -1437,8 +1445,16 @@
               const cfg = JSON.parse(ownerCard['自訂名片設定']);
               if (cfg.homeBanner) bannerUrl = cfg.homeBanner;
               if (cfg.homeYoutube) ytUrl = cfg.homeYoutube;
+              if (cfg.siteName) siteName = cfg.siteName;
           } catch(e){}
       }
+      
+      // 套用到頂部標題與設定頁輸入框
+      const headerEl = document.getElementById('header-site-name');
+      if (headerEl) headerEl.textContent = siteName;
+      const inputEl = document.getElementById('input-site-name');
+      if (inputEl && !inputEl.value) inputEl.value = siteName === 'LINE商機引擎' ? '' : siteName;
+      
       const bannerImg = document.getElementById('home-main-banner');
       if (bannerImg) bannerImg.src = bannerUrl;
       
@@ -1504,6 +1520,13 @@
       
       const ytInput = document.getElementById('input-store-youtube');
       if (ytInput) cfg.homeYoutube = ytInput.value.trim();
+      
+      // 新增：儲存系統名稱
+      const siteNameInput = document.getElementById('input-site-name');
+      if (siteNameInput) {
+          const newName = siteNameInput.value.trim();
+          cfg.siteName = newName || 'LINE商機引擎';
+      }
 
       try {
           await window.fetchAPI('updateCard', {
